@@ -7,6 +7,8 @@ import akka.stream.{ActorMaterializer, Materializer}
 import org.apache.kafka.clients.producer.{ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.serialization.StringSerializer
 
+import scala.concurrent.duration._
+
 
 object ProducerUtil extends App /*extends Runnable*/ {
 
@@ -20,33 +22,33 @@ object ProducerUtil extends App /*extends Runnable*/ {
       .withProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
       .withProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
 
-  //override def run(): Unit = {
   var i = 0
-  while (true) {
-
-    println(s"\nPARAGON O ID : ${UniqueId.getId() + 1}")
-    val done = Source(1 to 10)
-      .map { number =>
-        ProducerMessage.single(
-          new ProducerRecord[String, String]("topic1",
-            new Product(UniqueId.getId(), takeProductName(), randomAmount(), randomPrice()).toString)
-        )
+  val done = Source
+    .tick(1.second, 1.second, "")
+    .map { _ =>
+      if (i % 10 == 0 & i>0) {
+        println()
+        UniqueId.updateId()
+        i = 0
       }
+      i = i + 1
+      ProducerMessage.single(
+        new ProducerRecord[String, String]("topic1",
+          new Product(UniqueId.getId(), takeProductName(), randomAmount(), randomPrice()).toString)
+      )
+    }
+    .via(Producer.flexiFlow(producerSettings))
+    .map {
 
-      .via(Producer.flexiFlow(producerSettings))
-      .map {
-        case ProducerMessage.Result(metadata, ProducerMessage.Message(record, passThrough)) => {
-          s"Wysyłam:${record.value().split(",")(1)} " +
-            s"ilość:  ${record.value().split(",")(2)} " +
-            s"cena za jeden ${record.value().split(",")(3).toDouble} " +
-            s"paragonu o id ${UniqueId.getId()}"
-        }
+      case ProducerMessage.Result(metadata, ProducerMessage.Message(record, passThrough)) => {
+        s"Wysyłam $i produkt:${record.value().split(",")(1)} " +
+          s"ilość:${record.value().split(",")(2)} " +
+          s"cena za jeden ${record.value().split(",")(3).toDouble} " +
+          s"paragonu o id ${UniqueId.getId()}"
       }
-      .runWith(Sink.foreach(println(_)))
-
-    UniqueId.updateId()
-    Thread.sleep(2000)
-  }
+    }
+    .runWith(Sink.foreach(println(_)))
+  // }
   //}
 
   def takeProductName(): String = {
