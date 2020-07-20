@@ -26,7 +26,7 @@ object ProducerUtil extends App /*extends Runnable*/ {
   val done = Source
     .tick(1.second, 1.second, "")
     .map { _ =>
-      if (i % 10 == 0 & i>0) {
+      if (i % 10 == 0 & i > 0) {
         println()
         UniqueId.updateId()
         i = 0
@@ -39,7 +39,6 @@ object ProducerUtil extends App /*extends Runnable*/ {
     }
     .via(Producer.flexiFlow(producerSettings))
     .map {
-
       case ProducerMessage.Result(metadata, ProducerMessage.Message(record, passThrough)) => {
         s"Wysyłam $i produkt:${record.value().split(",")(1)} " +
           s"ilość:${record.value().split(",")(2)} " +
@@ -48,8 +47,6 @@ object ProducerUtil extends App /*extends Runnable*/ {
       }
     }
     .runWith(Sink.foreach(println(_)))
-  // }
-  //}
 
   def takeProductName(): String = {
     val listOfProduct = Array("makaron", "chleb", "ryż", "cukier", "baton", "woda", "jogurt", "ketchup", "ser", "banan")

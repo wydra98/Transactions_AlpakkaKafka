@@ -1,0 +1,5 @@
+package NoTransactionNewVersion
+
+object Sink {
+
+}

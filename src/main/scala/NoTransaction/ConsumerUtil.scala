@@ -5,13 +5,17 @@ import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.Sink
 import akka.stream.{ActorMaterializer, Materializer}
-import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.common.serialization.StringDeserializer
+
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 object ConsumerUtil extends App /*extends Runnable*/ {
 
   implicit val system: ActorSystem = ActorSystem("consumer-sample")
   implicit val materializer: Materializer = ActorMaterializer()
+  val map = new mutable.HashMap[Int,ArrayBuffer[ConsumerRecord[String, String]]]()
 
   val config = system.settings.config.getConfig("akka.kafka.consumer")
   val consumerSettings =
@@ -25,16 +29,21 @@ object ConsumerUtil extends App /*extends Runnable*/ {
 
   val done = Consumer
     .plainSource(consumerSettings, Subscriptions.topics("topic1"))
-
-
-
-
     .map(record => record.value)
     .map((x) => x.split(",").drop(2).map((y) => y.toDouble))
     .map((x) => x.product)
-    .fold[Double](0)(_ + _)
-    .runWith(Sink.foreach[Double]((x) => println(s"Stream function: " +
-      "final price = " + BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble +
-      s" for receipt id: ${}\n")))
+    //.via(collectGroup)
+    .runWith(Sink.foreach((x) => println(x)))
+
+      //    val collectGroup: Flow[String, List[String], NotUsed] ={
+//
+//
+//
+//
+//    }
+  //    .fold[Double](0)(_ + _)
+//    .runWith(Sink.foreach[Double]((x) => println(s"Stream function: " +
+//      "final price = " + BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble +
+//      s" for receipt id: ${}\n")))
 
 }
