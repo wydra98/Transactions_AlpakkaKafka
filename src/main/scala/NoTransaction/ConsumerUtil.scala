@@ -25,6 +25,8 @@ object ConsumerUtil extends App/*extends Runnable*/ {
 
     val done = Consumer
       .plainSource(consumerSettings, Subscriptions.topics("topic1"))
-      .runWith(Sink.foreach(record => println(s"Odebrałem : ${record.value()}")))
-
+      .runWith(Sink.foreach(record => println(s"Odebrałem:${record.value().split(",")(1)} " +
+        s"ilość:${record.value().split(",")(2)} " +
+        s"cena za jeden ${record.value().split(",")(3).toDouble} " +
+        s"paragonu o id ${record.value().split(",").head}")))
 }
