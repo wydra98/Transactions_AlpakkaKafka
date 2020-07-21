@@ -6,7 +6,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 
-object TransactionProperties {
+object ProjectProperties {
 
   implicit val system = akka.actor.ActorSystem("system")
   implicit val materializer: Materializer = ActorMaterializer()

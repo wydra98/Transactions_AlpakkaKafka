@@ -17,7 +17,7 @@ object SinkConsumer extends App {
   val map = new mutable.HashMap[Int,ArrayBuffer[ConsumerRecord[String, String]]]()
 
   Consumer
-    .plainSource(TransactionProperties.consumerSettings, Subscriptions.topics("transactionToSink"))
+    .plainSource(ProjectProperties.consumerSettings, Subscriptions.topics("transactionToSink"))
     .map(record => record.value)
     .map((x) => x.split(",").drop(2).map((y) => y.toDouble))
     .map((x) => x.product)

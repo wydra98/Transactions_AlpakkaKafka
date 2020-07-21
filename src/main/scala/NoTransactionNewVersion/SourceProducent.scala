@@ -29,7 +29,7 @@ object SourceProducent extends App {
           new Product(UniqueId.getId(), takeProductName(), randomAmount(), randomPrice()).toString)
       )
     }
-    .via(Producer.flexiFlow(TransactionProperties.producerSettings))
+    .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
       case ProducerMessage.Result(metadata, ProducerMessage.Message(record, passThrough)) => {
         s"Wysyłam $i produkt:${record.value().split(",")(1)} " +
