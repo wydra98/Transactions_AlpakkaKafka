@@ -53,6 +53,8 @@ object SourceProducent extends App {
 
   def randomPrice(): Double = {
     val generator = new scala.util.Random
-    BigDecimal(1 + generator.nextDouble() * 9).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+    //BigDecimal(1 + generator.nextDouble() * 9).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+    (1 + generator.nextInt(5))//.setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+
   }
 }
