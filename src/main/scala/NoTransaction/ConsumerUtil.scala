@@ -32,18 +32,5 @@ object ConsumerUtil extends App /*extends Runnable*/ {
     .map(record => record.value)
     .map((x) => x.split(",").drop(2).map((y) => y.toDouble))
     .map((x) => x.product)
-    //.via(collectGroup)
     .runWith(Sink.foreach((x) => println(x)))
-
-      //    val collectGroup: Flow[String, List[String], NotUsed] ={
-//
-//
-//
-//
-//    }
-  //    .fold[Double](0)(_ + _)
-//    .runWith(Sink.foreach[Double]((x) => println(s"Stream function: " +
-//      "final price = " + BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble +
-//      s" for receipt id: ${}\n")))
-
 }
