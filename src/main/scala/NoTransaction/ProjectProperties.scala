@@ -1,4 +1,4 @@
-package NoTransactionNewVersion
+package NoTransaction
 
 import akka.kafka.{ConsumerSettings, ProducerSettings}
 import akka.stream.{ActorMaterializer, Materializer}

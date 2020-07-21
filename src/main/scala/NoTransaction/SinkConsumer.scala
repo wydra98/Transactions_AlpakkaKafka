@@ -1,4 +1,4 @@
-package NoTransactionNewVersion
+package NoTransaction
 
 import akka.actor.ActorSystem
 import akka.kafka.Subscriptions

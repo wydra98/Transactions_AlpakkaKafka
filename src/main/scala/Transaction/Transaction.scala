@@ -1,4 +1,4 @@
-package NoTransactionNewVersion
+package Transaction
 
 import akka.kafka.scaladsl.Consumer.DrainingControl
 import akka.kafka.scaladsl.{Consumer, Producer}
@@ -6,7 +6,7 @@ import akka.kafka.{ProducerMessage, Subscriptions}
 import akka.stream.{ActorMaterializer, Materializer}
 import org.apache.kafka.clients.producer.ProducerRecord
 
-object ReadWriteProcess extends App {
+object Transaction extends App {
 
   implicit val system = akka.actor.ActorSystem("system")
   implicit val materializer: Materializer = ActorMaterializer()
@@ -25,7 +25,7 @@ object ReadWriteProcess extends App {
         msg.committableOffset
       )
     }
-    .toMat(Producer.committableSink(ProjectProperties.producerSettings))(DrainingControl.apply)
+    .toMat(Producer.committableSink(ProjectProperties.producerTransactionSettings))(DrainingControl.apply)
     .run()
 }
 
