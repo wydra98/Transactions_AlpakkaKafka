@@ -49,7 +49,7 @@ object SinkConsumer extends App {
         var finalPrice = 0.0
         for (product <- array) {
           if(product._1 == idRecord){
-            println(f"Product:${product._3}%-9s| total price: ${product._2}%-5s| receiptId: $idRecord")
+            println(f"Receive:${product._3}%-9s| total price: ${product._2}%-5s| receiptId: $idRecord")
             finalPrice = finalPrice + product._2
           }
         }

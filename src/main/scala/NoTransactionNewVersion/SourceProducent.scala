@@ -1,6 +1,5 @@
 package NoTransactionNewVersion
 
-import NoTransaction.{Product, UniqueId}
 import akka.kafka.ProducerMessage
 import akka.kafka.scaladsl.Producer
 import akka.stream.scaladsl.{Sink, Source}
@@ -26,16 +25,15 @@ object SourceProducent extends App {
       i = i + 1
       ProducerMessage.single(
         new ProducerRecord[String, String]("sourceToTransaction",
-          new Product(UniqueId.getId(), takeProductName(), randomAmount(), randomPrice()).toString)
+          new Product(UniqueId.getId(), takeProductName(), randomAmount(), randomPrice(), i).toString)
       )
     }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
+
       case ProducerMessage.Result(metadata, ProducerMessage.Message(record, passThrough)) => {
-        s"Wysyłam $i produkt:${record.value().split(",")(1)} " +
-          s"ilość:${record.value().split(",")(2)} " +
-          s"cena za jeden ${record.value().split(",")(3).toDouble} " +
-          s"paragonu o id ${UniqueId.getId()}"
+        val product = record.value().split(",")
+        f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}"
       }
     }
     .runWith(Sink.foreach(println(_)))
@@ -53,8 +51,6 @@ object SourceProducent extends App {
 
   def randomPrice(): Double = {
     val generator = new scala.util.Random
-    //BigDecimal(1 + generator.nextDouble() * 9).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
-    (1 + generator.nextInt(5))//.setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
-
+    BigDecimal(1 + generator.nextDouble() * 9).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
   }
 }
