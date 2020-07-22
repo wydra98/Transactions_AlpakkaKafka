@@ -19,7 +19,7 @@ object SinkConsumer extends App {
   var idRecord = idReceipt
 
   Consumer
-    .plainSource(ProjectProperties.consumerSettings, Subscriptions.topics("transactionToSink"))
+    .plainSource(ProjectProperties.consumerTransactionSettings, Subscriptions.topics("transactionToSink"))
 
     .map(record => record.value)
 
@@ -47,11 +47,11 @@ object SinkConsumer extends App {
         finalPrice = 0
       }
 
-      println(f"Receive:$productName%-9s| total price: $price%-5s| receiptId: $idReceipt")
+      println(f"Receive:$productName%-9s| total price: $price%-6s| receiptId: $idReceipt")
 
       Source.single(price)
         .map(x => new ProducerRecord[String, String]("ProductPrice",
-          f"Receive:$productName%-9s| total price: $x%-5s| receiptId: $idReceipt"))
+          f"Receive:$productName%-9s| total price: $x%-6s| receiptId: $idReceipt"))
         .runWith(Producer.plainSink(ProjectProperties.producerSettings))
 
       finalPrice = BigDecimal(finalPrice + price).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble

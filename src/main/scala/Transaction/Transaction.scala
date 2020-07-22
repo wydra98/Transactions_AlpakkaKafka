@@ -27,7 +27,7 @@ object Transaction{
           msg.partitionOffset
         )
       }
-      .toMat(Transactional.sink(ProjectProperties.producerSettings, "producer"))(DrainingControl.apply)
+      .toMat(Transactional.sink(ProjectProperties.producerTransactionSettings, "producer"))(DrainingControl.apply)
       .run()
   }
 }
