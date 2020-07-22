@@ -1,21 +1,23 @@
 package SourceProducent
 
 import Properties.ProjectProperties
+import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage
 import akka.kafka.scaladsl.Producer
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.{ActorMaterializer, Materializer}
 import org.apache.kafka.clients.producer.ProducerRecord
+
 import scala.concurrent.duration._
-//import scala.concurrent.duration._
-object SourceProducentWithTransaction extends App {
 
-  implicit val system = akka.actor.ActorSystem("system")
-  implicit val materializer: Materializer = ActorMaterializer()
+object SourceProducerNoTransaction extends App {
+
+  implicit val system: ActorSystem = akka.actor.ActorSystem("system")
   val uniqueId = new UniqueId
+  val uniqueIdZoombie = new UniqueId
 
+  /** Produce messages to topic which subscribe class "NoTransaction" */
   var i = 0
-  val done = Source
+  val noZoombie = Source
     .tick(1.second, 1.second, "")
     .map { _ =>
       if (i % 10 == 0 & i > 0) {
@@ -25,17 +27,41 @@ object SourceProducentWithTransaction extends App {
       }
       i = i + 1
       ProducerMessage.single(
-        new ProducerRecord[String, String]("sourceToTransaction",
-          new Product(uniqueId.getId(), takeProductName(), randomAmount(), randomPrice(), i).toString)
+        new ProducerRecord[String, String]("sourceToNoTransaction",
+          new Product(uniqueId.getId, takeProductName(), randomAmount(), randomPrice(), i).toString)
       )
     }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
-
       case ProducerMessage.Result(metadata, ProducerMessage.Message(record, passThrough)) => {
         val product = record.value().split(",")
         f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}"
       }
+    }
+    .runWith(Sink.foreach(println(_)))
+
+
+  /** Produce messages to topic which subscribe class "NoTransactionZoombie" */
+  var j = 0
+  val zoombie = Source
+    .tick(1.second, 1.second, "")
+    .map { _ =>
+      if (j % 10 == 0 & j > 0) {
+        println()
+        uniqueIdZoombie.updateId()
+        j = 0
+      }
+      j = j + 1
+      ProducerMessage.single(
+        new ProducerRecord[String, String]("sourceToNoTransactionZoombie",
+          new Product(uniqueIdZoombie.getId, takeProductName(), randomAmount(), randomPrice(), j).toString)
+      )
+    }
+    .via(Producer.flexiFlow(ProjectProperties.producerSettings))
+    .map {
+      case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) =>
+        val product = record.value().split(",")
+        f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}"
     }
     .runWith(Sink.foreach(println(_)))
 

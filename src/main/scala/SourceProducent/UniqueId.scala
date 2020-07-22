@@ -4,11 +4,11 @@ class UniqueId {
 
   var id = 0
 
-  def getId(): Int = {
-  id
-}
+  def getId: Int = {
+    id
+  }
 
-  def updateId() = {
-  id = id + 1
-}
+  def updateId(): Unit = {
+    id = id + 1
+  }
 }

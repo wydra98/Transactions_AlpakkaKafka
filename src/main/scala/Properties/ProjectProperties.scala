@@ -1,34 +1,35 @@
 package Properties
 
+import akka.actor.ActorSystem
 import akka.kafka.{ConsumerSettings, ProducerSettings}
-import akka.stream.{ActorMaterializer, Materializer}
+import com.typesafe.config.Config
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
+
 import scala.concurrent.duration._
 
 object ProjectProperties {
 
-  implicit val system = akka.actor.ActorSystem("system")
-  implicit val materializer: Materializer = ActorMaterializer()
+  implicit val system: ActorSystem = akka.actor.ActorSystem("system")
 
-  val configProducer = system.settings.config.getConfig("akka.kafka.producer")
-  val configConsumer = system.settings.config.getConfig("akka.kafka.consumer")
+  val configProducer: Config = system.settings.config.getConfig("akka.kafka.producer")
+  val configConsumer: Config = system.settings.config.getConfig("akka.kafka.consumer")
 
-  val producerSettings =
+  val producerSettings: ProducerSettings[String, String] =
     ProducerSettings(configProducer, new StringSerializer, new StringSerializer)
       .withBootstrapServers("localhost:9092")
       .withProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
       .withProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
 
-  val producerTransactionSettings =
+  val producerTransactionSettings: ProducerSettings[String, String] =
     ProducerSettings(configProducer, new StringSerializer, new StringSerializer)
       .withBootstrapServers("localhost:9092")
       .withEosCommitInterval(10.seconds)
       .withProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
       .withProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
 
-  val consumerSettings =
+  val consumerSettings: ConsumerSettings[String, String] =
     ConsumerSettings(configConsumer, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers("localhost:9092")
       .withGroupId("group1")
@@ -37,7 +38,7 @@ object ProjectProperties {
       .withProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
       .withProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
 
-  val consumerTransactionSettings =
+  val consumerTransactionSettings: ConsumerSettings[String, String] =
     ConsumerSettings(configConsumer, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers("localhost:9092")
       .withGroupId("group1")
