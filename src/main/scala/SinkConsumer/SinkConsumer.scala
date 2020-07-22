@@ -3,65 +3,58 @@ package SinkConsumer
 import Properties.ProjectProperties
 import akka.actor.ActorSystem
 import akka.kafka.Subscriptions
-import akka.kafka.scaladsl.Consumer
-import akka.stream.scaladsl.Sink
+import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, Materializer}
+import org.apache.kafka.clients.producer.ProducerRecord
 
-import scala.collection.mutable.ArrayBuffer
-
-object SinkConsumer {
+object SinkConsumer extends App {
 
   implicit val system: ActorSystem = ActorSystem("consumer-sample")
   implicit val materializer: Materializer = ActorMaterializer()
-  val array = ArrayBuffer[(Int, Double, String)]()
 
-  var idReceipt, idRecord = 0
   var productName = ""
-  var flag = true
+  var finalPrice: Double = 0
+  var idReceipt = 0
+  var idRecord = idReceipt
 
-  def main(args: Array[String]): Unit = {
-    Consumer
-      .plainSource(ProjectProperties.consumerSettings, Subscriptions.topics("transactionToSink"))
-      .map(record => record.value)
-      .map((x) => {
-        val a = x.split(",")
-        idRecord = a(0).toInt
-        productName = a(1).toString
-        x.split(",").drop(2).map((y) => y.toDouble)
-      })
-      .map((x) => {
-        x(0) * x(1)
-      })
+  Consumer
+    .plainSource(ProjectProperties.consumerSettings, Subscriptions.topics("transactionToSink"))
 
-      .runWith(Sink.foreach((x) => {
-        var numberOfId = {
-          var number = 0
-          for (product <- array) {
-            if (product._1 == idRecord)
-              number = number + 1
-          }
-          number
-        }
+    .map(record => record.value)
 
-        if (numberOfId < 10) {
-          array.addOne(idRecord, x, productName)
-          numberOfId = numberOfId + 1
-        }
+    .map((x) => {
+      val a = x.split(",")
+      idRecord = a(0).toInt
+      productName = a(1).toString
+      x.split(",").drop(2).map((y) => y.toDouble)
+    })
 
-        if (numberOfId == 10) {
-          println(s"****************** ReceiptId = $idRecord ******************\n")
-          var finalPrice = 0.0
-          for (product <- array) {
-            if (product._1 == idRecord) {
-              println(f"Receive:${product._3}%-9s| total price: " +
-                f"${BigDecimal(product._2).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble}%-6s| receiptId: $idRecord")
+    .map((x) => x(0) * x(1))
 
-              finalPrice = finalPrice + BigDecimal(product._2).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
-            }
-          }
-          println(s"\n**************** FINAL PRICE = ${BigDecimal(finalPrice).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble} ****************\n\n")
-        }
-      }))
-  }
+    .runWith(Sink.foreach((x) => {
+      val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
 
+      if (idReceipt != idRecord) {
+        idReceipt = idRecord
+        val finalPriceTemp = finalPrice
+        println(s"\n**************** FINAL PRICE = ${finalPriceTemp} ****************\n\n")
+
+        Source.single(finalPriceTemp)
+          .map(x => new ProducerRecord[String, String]("FinalPrice",
+            s"Receipt id: ${idReceipt - 1}\tFinal price = $x"))
+          .runWith(Producer.plainSink(ProjectProperties.producerSettings))
+        finalPrice = 0
+      }
+
+      println(f"Receive:$productName%-9s| total price: $price%-5s| receiptId: $idReceipt")
+
+      Source.single(price)
+        .map(x => new ProducerRecord[String, String]("ProductPrice",
+          f"Receive:$productName%-9s| total price: $x%-5s| receiptId: $idReceipt"))
+        .runWith(Producer.plainSink(ProjectProperties.producerSettings))
+
+      finalPrice = BigDecimal(finalPrice + price).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+    }))
 }
+
