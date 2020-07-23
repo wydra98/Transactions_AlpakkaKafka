@@ -32,7 +32,7 @@ object ProjectProperties {
   val consumerSettings: ConsumerSettings[String, String] =
     ConsumerSettings(configConsumer, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers("localhost:9092")
-      .withGroupId("group1")
+      .withGroupId("group11")
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
       .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
       .withProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
@@ -41,7 +41,7 @@ object ProjectProperties {
   val consumerTransactionSettings: ConsumerSettings[String, String] =
     ConsumerSettings(configConsumer, new StringDeserializer, new StringDeserializer)
       .withBootstrapServers("localhost:9092")
-      .withGroupId("group1")
+      .withGroupId("group12")
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
       .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")

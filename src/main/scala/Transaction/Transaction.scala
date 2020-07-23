@@ -7,7 +7,7 @@ import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Transactional}
 import akka.kafka.{ProducerMessage, Subscriptions}
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{RestartSource, Sink}
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.Await
@@ -29,8 +29,21 @@ import scala.concurrent.duration._
  * przestały wyswietlać się logi Pisało że klient kafki się zatrzymał, nic juz nie odbieramy ani wysyłamy,
  * na szczescie konsumer nie otrzymal wiadomości, które nie zostały zacommitowane
  *
+ * WNIOSEK 4
+ * Popełniałem nieswiadomie błąd w każdym otrzymanym obiekcie - powodowalo to partitions pausing i
+ * zadna wiadomosc nie przechodzila
  *
+ * WNIOSEK 5
+ * Wygląda na to że jak nie robimy recovera calego strumienia to on po prostu sie zatrzymuje, nie wylacza, po prostu
+ * probuje dalej pobierac elementy ale jest w stanie pausy i nie moze nic pobrac z source
  *
+ * WNIOSEK 6
+ * Recover działa strumien musi dostac troche czasu na odbudowe zdefiniowana w RestartSourceProperty i co wazne nie pobiera on
+ * zaległych wiadomości pobiera on tylko te aktualne
+ *
+ * WNIOSEK 7
+ * Trzeba byc bardzo uwaznym z bledami wlasnymi bo kafka prawie nic nie wywala tylko dusi w sobie w srodku przez co moga
+ * sie pojawic niespodziewane bledy
  *
  *
  * */
@@ -44,29 +57,30 @@ object Transaction extends App {
   //@TODO  pasuje obsłużyć tutaj błędy, jakos wyswietlic to wszystko, napisac ze offset był taki a taki,
   //@TODO a potem był taki, a taki
 
-//  val stream = RestartSource.onFailuresWithBackoff(
-//    minBackoff = 1.seconds,
-//    maxBackoff = 10.seconds,
-//    randomFactor = 0.2
-  //) { () =>
-    val stream = Transactional
+  val stream = RestartSource.onFailuresWithBackoff(
+    minBackoff = 1.seconds,
+    maxBackoff = 10.seconds,
+    randomFactor = 0.2,
+    maxRestarts = 2
+  ) { () =>
+   val stream = Transactional
       .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
       .map { msg =>
         val product = msg.record.value().split(",")
         println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| productId: ${product(0)}")
-        if (product(4).trim.toInt % 10 == 0) {
-          println()
-        }
-//        if (i % 16 == 0)
-//          throw new Throwable
 
-        ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value), msg.partitionOffset)
+        if (product(0).trim().toInt % 15 == 0) {
+          throw new Throwable
+        }
+
+
+        ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value),
+          msg.partitionOffset)
       }
 
-      // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
       .mapMaterializedValue(c => innerControl.set(c))
       .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
- // }
+
 
   stream.runWith(Sink.ignore)
 
@@ -139,23 +153,23 @@ object Transaction extends App {
    */
 
   //
-//  In the javadoc for KafkaConsumer#pause
-//  <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#pause(java.util.Collection)>
-//  it's stated that,
-//
-//  Suspend fetching from the requested partitions. Future calls to poll(long)
-//  > <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#poll%28long%29>
-//  > will not return any records from these partitions until they have been
-//  > resumed using resume(util.Collection)
-//  > <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#resume%28java.util.Collection%29>.
-//  > Note that this method does not affect partition subscription. In
-//  > particular, it does not cause a group rebalance when automatic assignment
-//    > is used.
-//    >
-//
-//  If a new consumer instance joins the group and the paused partition
-//  assigned to this consumer it starts to read data from that partition.  How
-//  to pause a partition even if re-balance occurs ?
+  //  In the javadoc for KafkaConsumer#pause
+  //  <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#pause(java.util.Collection)>
+  //  it's stated that,
+  //
+  //  Suspend fetching from the requested partitions. Future calls to poll(long)
+  //  > <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#poll%28long%29>
+  //  > will not return any records from these partitions until they have been
+  //  > resumed using resume(util.Collection)
+  //  > <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#resume%28java.util.Collection%29>.
+  //  > Note that this method does not affect partition subscription. In
+  //  > particular, it does not cause a group rebalance when automatic assignment
+  //    > is used.
+  //    >
+  //
+  //  If a new consumer instance joins the group and the paused partition
+  //  assigned to this consumer it starts to read data from that partition.  How
+  //  to pause a partition even if re-balance occurs ?
 
 
 }

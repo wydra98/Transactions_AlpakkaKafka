@@ -40,7 +40,7 @@ object SourceProducerWithTransaction extends App {
     .tick(1.second, 1.second, "")
     .map { _ =>
       ProducerMessage.single(
-        new ProducerRecord[String, String]("sourceToTransaction",
+        new ProducerRecord[String, String]("sourceToTransactionZoombie",
           new Product(uniqueIdZoombie.updateAndGetId, takeProductName(), randomAmount(), randomPrice()).toString)
       )
     }
