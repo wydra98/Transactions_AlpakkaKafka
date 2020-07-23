@@ -1,5 +1,6 @@
 package Transaction
 
+import java.net.ConnectException
 import java.util.concurrent.atomic.AtomicReference
 
 import Properties.ProjectProperties
@@ -7,38 +8,63 @@ import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Transactional}
 import akka.kafka.{ProducerMessage, Subscriptions}
-import akka.stream.scaladsl.{RestartSource, Sink}
+import akka.stream.scaladsl.Sink
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
+/** WNIOSEK 1
+ * Jeśli nie ma połączenia z kafką OD POCZĄTKU, to Transactional.source automatycznie będzie próbowało się z tą kafką
+ * połączyć tak długo aż mu sie nie uda, użytkownik nie ma wpływu na to działanie, strumień nie będzie nic odbierał,
+ * ani prztwarzał ani wysyłał, dopóki nie nastąpi połączenie z kafką (jedyny błąd widzimy w logach
+ * "java.net.ConnectException: Połączenie odrzucone", natomiast aplikacja jest zamrożona i zatrzymana)
+ *
+ * WNIOSEK 2
+ *
+ * */
 
 object Transaction extends App {
 
   implicit val system: ActorSystem = akka.actor.ActorSystem("system")
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
 
-  val stream = RestartSource.onFailuresWithBackoff(
-    minBackoff = 1.seconds,
-    maxBackoff = 30.seconds,
-    randomFactor = 0.2
-  ) { () =>
-    Transactional
-      .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
-      .map { msg =>
-        val product = msg.record.value().split(",")
-        println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}")
-        if (product(4).trim.toInt % 10 == 0) {
-          println()
+
+  //@TODO musi działać to tak że jeśli przerwiemy w przed zacomitowaniem to zmiany nie pokażą się w konsumencie,
+  //@TODO  pasuje obsłużyć tutaj błędy, jakos wyswietlic to wszystko, napisac ze offset był taki a taki,
+  //@TODO a potem był taki, a taki
+
+  try{
+//    val stream = RestartSource.onFailuresWithBackoff(
+//      minBackoff = 1.seconds,
+//      maxBackoff = 10.seconds,
+//      randomFactor = 0.2
+//    ) { () =>
+    val stream =  Transactional
+        .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
+        .map { msg =>
+          throw new ConnectException()
+          println("smalczyk")
+          val product = msg.record.value().split(",")
+          println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}")
+          if (product(4).trim.toInt % 10 == 0) {
+            println()
+          }
+          ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value), msg.partitionOffset)
         }
-        ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value), msg.partitionOffset)
-      }
-      // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
-      .mapMaterializedValue(c => innerControl.set(c))
-      .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
+        // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
+        .mapMaterializedValue(c => innerControl.set(c))
+        .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
+    //}
+    stream.runWith(Sink.ignore)
+  }
+  catch{
+    case _: ConnectException => println("Brok połączenia z Kafką! Wiadomości nie zostaną wysłane i zacommitowane")
+   // case _ => Stop
   }
 
-  stream.runWith(Sink.ignore)
+
+
 
   // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
   sys.ShutdownHookThread {
