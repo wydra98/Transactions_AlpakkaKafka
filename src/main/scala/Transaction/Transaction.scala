@@ -45,6 +45,10 @@ import scala.concurrent.duration._
  * Trzeba byc bardzo uwaznym z bledami wlasnymi bo kafka prawie nic nie wywala tylko dusi w sobie w srodku przez co moga
  * sie pojawic niespodziewane bledy
  *
+ * WNIOSEK 8
+ * BARDZO WAŻNY WNIOSEK! Podczas restartu streamu pierwsze commitowane sa wczesniejsze zmiany
+ * (te ktore byly zacomitowane przed startem). Dopiero potem przesuwamy dalej
+ *
  *
  * */
 
@@ -63,16 +67,24 @@ object Transaction extends App {
     randomFactor = 0.2,
     maxRestarts = 2
   ) { () =>
-   val stream = Transactional
+    Transactional
       .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
       .map { msg =>
         val product = msg.record.value().split(",")
-        println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| productId: ${product(0)}")
+        println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s|" +
+          f" amount: ${product(2)}%-3s| productId: ${product(0)} | offset: ${msg.partitionOffset.offset}")
 
-        if (product(0).trim().toInt % 15 == 0) {
+        println(msg.partitionOffset)
+        if (product(0).trim().toInt % 25 == 0) {
+          //val recordsFromConsumerList = recordsFromConsumer.asScala.toList
+
+         // val lastOffset = recordsFromConsumerList.last.offset()
+         // println("Aktualny zacomitowany offset: ")
+          System.err.println("Bład został rzucony podczas wiadomości o offsecie: "+ msg.partitionOffset.offset)
+          //println( s"Wszystkie wiadomości do offsetu ${} producent już odebrał," +
+          //  s" wiadomości ${} czekają na commit przez nową instancję zródła:")
           throw new Throwable
         }
-
 
         ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value),
           msg.partitionOffset)
@@ -80,10 +92,9 @@ object Transaction extends App {
 
       .mapMaterializedValue(c => innerControl.set(c))
       .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
-
+  }
 
   stream.runWith(Sink.ignore)
-
 
   // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
   sys.ShutdownHookThread {
