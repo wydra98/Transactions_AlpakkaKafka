@@ -13,7 +13,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-object Transaction extends App{
+object Transaction extends App {
 
   implicit val system: ActorSystem = akka.actor.ActorSystem("system")
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
@@ -45,4 +45,31 @@ object Transaction extends App{
     Await.result(innerControl.get.shutdown(), 10.seconds)
   }
 
+
+  /** 1 - logging
+   * Nieobsłużony wyjątek - stream wywali blad, bo wyjatek jest nieobsluzony */
+  /* val faultySource = Source(1 to 10).map(e => if(e ==6) throw new RuntimeException else e)
+     faultySource.lag("trackingElements").
+     to(Sink.ignore)
+     .run()  */
+
+  /** 2 - zakonczenie strumienia
+   * wyjatek obsluzony dla 6 wyswietli hejo po czym apka sie zakonczy(ale nie wywali błedu!) */
+  /* faultySource.recover {
+      case _: RuntimeException => "hejo"}
+      .log("gracefulSource")
+      .to(Sink.ignore)
+      .run */
+
+  /** 3 - zastapnie strumienia
+   * gdy zaistnieje wyjatek aplikacja zastapi strumen innym strumieniem */
+  /* faultySource.recoverWithRetries( 3 (liczba odnowien), {
+      case _: RuntimeException => Source(90 to 99)}
+      .log("gracefulSource")
+      .to(Sink.ignore)
+      .run
+      OUTPUT => 1,2,3,4,5,90,91,92, ... , 99
+      */
+
+   */
 }
