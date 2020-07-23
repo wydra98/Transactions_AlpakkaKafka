@@ -10,9 +10,7 @@ object SinkConsumer extends App {
 
   implicit val system: ActorSystem = ActorSystem("consumer-sample")
   var productName = ""
-  var finalPrice = 0.0
-  var idReceipt = 0
-  var idRecord = idReceipt
+  var idRecord = 0
 
   val consumer = Consumer
     .plainSource(ProjectProperties.consumerTransactionSettings, Subscriptions.topics("transactionToSink"))
@@ -25,13 +23,7 @@ object SinkConsumer extends App {
     })
     .runWith(Sink.foreach((x) => {
       val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
-      if (idReceipt != idRecord) {
-        println(s"\n**************** FINAL PRICE = ${finalPrice} ****************\n\n")
-        finalPrice = 0
-        idReceipt = idRecord
-      }
-      println(f"Receive:$productName%-9s| total price: $price%-6s| receiptId: $idReceipt")
-      finalPrice = BigDecimal(finalPrice + price).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+      println(f"Receive:$productName%-9s| total price: $price%-6s| receiptId: $idRecord")
     }))
 }
 

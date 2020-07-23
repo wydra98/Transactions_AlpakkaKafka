@@ -16,18 +16,12 @@ object SourceProducerWithTransaction extends App {
 
   /** Produce messages to topic which subscribe class "Transaction" */
   var i = 0
-  val done = Source
+  val noZoombie = Source
     .tick(1.second, 1.second, "")
     .map { _ =>
-      if (i % 10 == 0 & i > 0) {
-        println()
-        uniqueId.updateId()
-        i = 0
-      }
-      i = i + 1
       ProducerMessage.single(
         new ProducerRecord[String, String]("sourceToTransaction",
-          new Product(uniqueId.getId, takeProductName(), randomAmount(), randomPrice(), i).toString)
+          new Product(uniqueId.updateAndGetId, takeProductName(), randomAmount(), randomPrice()).toString)
       )
     }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
@@ -35,7 +29,7 @@ object SourceProducerWithTransaction extends App {
 
       case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) =>
         val product = record.value().split(",")
-        f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}"
+        f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| productId: ${product(0)}"
     }
     .runWith(Sink.foreach(println(_)))
 
@@ -45,22 +39,16 @@ object SourceProducerWithTransaction extends App {
   val zoombie = Source
     .tick(1.second, 1.second, "")
     .map { _ =>
-      if (j % 10 == 0 & j > 0) {
-        println()
-        uniqueIdZoombie.updateId()
-        j = 0
-      }
-      j = j + 1
       ProducerMessage.single(
-        new ProducerRecord[String, String]("sourceToTransactionZoombie",
-          new Product(uniqueIdZoombie.getId, takeProductName(), randomAmount(), randomPrice(), j).toString)
+        new ProducerRecord[String, String]("sourceToTransaction",
+          new Product(uniqueIdZoombie.updateAndGetId, takeProductName(), randomAmount(), randomPrice()).toString)
       )
     }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
       case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) =>
         val product = record.value().split(",")
-        f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}"
+        f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| productId: ${product(0)}"
     }
     .runWith(Sink.foreach(println(_)))
 

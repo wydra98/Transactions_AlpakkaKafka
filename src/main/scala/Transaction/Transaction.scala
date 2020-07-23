@@ -1,6 +1,5 @@
 package Transaction
 
-import java.net.ConnectException
 import java.util.concurrent.atomic.AtomicReference
 
 import Properties.ProjectProperties
@@ -21,6 +20,18 @@ import scala.concurrent.duration._
  * "java.net.ConnectException: Połączenie odrzucone", natomiast aplikacja jest zamrożona i zatrzymana)
  *
  * WNIOSEK 2
+ * Jednak podobnie zachowuje sie aplikacja bez transakcji, wynika z tego ze alpkka generalnie dba o to ze jak nie ma
+ * polaczenie w kafce to caly czas prubujemy nawiazac polaczenie dopoki sie nie uda, czyli tutaj brak roznicy miedzy
+ * transakcja a jej brakiem
+ *
+ * WNIOSEK 3
+ * Wygląda na to że jak rzucimy jakis wyjątek w środku streamu aplikacja nie zatrzyma się???,
+ * przestały wyswietlać się logi Pisało że klient kafki się zatrzymał, nic juz nie odbieramy ani wysyłamy,
+ * na szczescie konsumer nie otrzymal wiadomości, które nie zostały zacommitowane
+ *
+ *
+ *
+ *
  *
  * */
 
@@ -28,42 +39,36 @@ object Transaction extends App {
 
   implicit val system: ActorSystem = akka.actor.ActorSystem("system")
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
-
-
+  var flag = false
   //@TODO musi działać to tak że jeśli przerwiemy w przed zacomitowaniem to zmiany nie pokażą się w konsumencie,
   //@TODO  pasuje obsłużyć tutaj błędy, jakos wyswietlic to wszystko, napisac ze offset był taki a taki,
   //@TODO a potem był taki, a taki
 
-  try{
-//    val stream = RestartSource.onFailuresWithBackoff(
-//      minBackoff = 1.seconds,
-//      maxBackoff = 10.seconds,
-//      randomFactor = 0.2
-//    ) { () =>
-    val stream =  Transactional
-        .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
-        .map { msg =>
-          throw new ConnectException()
-          println("smalczyk")
-          val product = msg.record.value().split(",")
-          println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}")
-          if (product(4).trim.toInt % 10 == 0) {
-            println()
-          }
-          ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value), msg.partitionOffset)
+//  val stream = RestartSource.onFailuresWithBackoff(
+//    minBackoff = 1.seconds,
+//    maxBackoff = 10.seconds,
+//    randomFactor = 0.2
+  //) { () =>
+    val stream = Transactional
+      .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
+      .map { msg =>
+        val product = msg.record.value().split(",")
+        println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| productId: ${product(0)}")
+        if (product(4).trim.toInt % 10 == 0) {
+          println()
         }
-        // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
-        .mapMaterializedValue(c => innerControl.set(c))
-        .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
-    //}
-    stream.runWith(Sink.ignore)
-  }
-  catch{
-    case _: ConnectException => println("Brok połączenia z Kafką! Wiadomości nie zostaną wysłane i zacommitowane")
-   // case _ => Stop
-  }
+//        if (i % 16 == 0)
+//          throw new Throwable
 
+        ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value), msg.partitionOffset)
+      }
 
+      // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
+      .mapMaterializedValue(c => innerControl.set(c))
+      .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
+ // }
+
+  stream.runWith(Sink.ignore)
 
 
   // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
@@ -118,8 +123,8 @@ object Transaction extends App {
    */
 
   /** 5 - supervision strategy
-   W przypadku wystąpienia 13 mamy rożne warianty przechwytywania błędów
-  */
+   * W przypadku wystąpienia 13 mamy rożne warianty przechwytywania błędów
+   */
   /* val numbers = scaladsl.Source(1 to 20).map(n => if(n == 13) throw new RuntimeException("bad luck") else n).log("supervision")
      val supervisedNumbers = numbers.withAttributes(ActorAttributes.supervisionStrategy {
 
@@ -132,4 +137,25 @@ object Transaction extends App {
   })
   supervisedNumbers.to(Sink.ignore).run()
    */
+
+  //
+//  In the javadoc for KafkaConsumer#pause
+//  <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#pause(java.util.Collection)>
+//  it's stated that,
+//
+//  Suspend fetching from the requested partitions. Future calls to poll(long)
+//  > <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#poll%28long%29>
+//  > will not return any records from these partitions until they have been
+//  > resumed using resume(util.Collection)
+//  > <http://kafka.apache.org/0100/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html#resume%28java.util.Collection%29>.
+//  > Note that this method does not affect partition subscription. In
+//  > particular, it does not cause a group rebalance when automatic assignment
+//    > is used.
+//    >
+//
+//  If a new consumer instance joins the group and the paused partition
+//  assigned to this consumer it starts to read data from that partition.  How
+//  to pause a partition even if re-balance occurs ?
+
+
 }
