@@ -71,5 +71,39 @@ object Transaction extends App {
       OUTPUT => 1,2,3,4,5,90,91,92, ... , 99
       */
 
+  /** 4 - backoff supervisor
+   * po kazdym nieobsluzonym wyjątku aplikacja uruchamia od nowa strumien,
+   * za kazdym razem dlugosc czasu potrzebna do uruchomienia nowego strumienia
+   * rosnie podwójnie, az do momentu gdy osiagnie wartosc maxBackoff */
+  /* val restartSource = RestartSource.onFailureWithBackoff(
+     minBackoff = 1 second,
+     maxBackoff = 30 second,
+     randomFactor =0.2 // ochrania przed tym ze kilka componentow chcialo by zrestartowac w tym samym momencie
+     (() => {
+     val randomNumber = new Random().nextInt(20)
+     Source(1 to 10).map(elem => if(elem == randomNumber) throw new RuntimeException else elem)
+     })
+
+     restartSource
+     .log()
+     .to(Sink.ignore)
+     .run()
+     )
+   */
+
+  /** 5 - supervision strategy
+   W przypadku wystąpienia 13 mamy rożne warianty przechwytywania błędów
+  */
+  /* val numbers = scaladsl.Source(1 to 20).map(n => if(n == 13) throw new RuntimeException("bad luck") else n).log("supervision")
+     val supervisedNumbers = numbers.withAttributes(ActorAttributes.supervisionStrategy {
+
+    //Resume = skips the faulty element
+    //Stop = stop the stream
+    //Restart = resume + clears internal state
+
+     case _: Runtime => Resume
+     case _ => Stop
+  })
+  supervisedNumbers.to(Sink.ignore).run()
    */
 }
