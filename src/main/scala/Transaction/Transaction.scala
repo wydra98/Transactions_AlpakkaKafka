@@ -70,6 +70,8 @@ object Transaction extends App {
     Transactional
       .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
       .map { msg =>
+
+
         val product = msg.record.value().split(",")
         println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s|" +
           f" amount: ${product(2)}%-3s| productId: ${product(0)} | offset: ${msg.partitionOffset.offset}")
@@ -96,7 +98,6 @@ object Transaction extends App {
 
   stream.runWith(Sink.ignore)
 
-  // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
   sys.ShutdownHookThread {
     Await.result(innerControl.get.shutdown(), 10.seconds)
   }

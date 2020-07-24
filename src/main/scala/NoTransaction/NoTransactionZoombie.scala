@@ -15,11 +15,8 @@ object NoTransactionZoombie extends App {
     .map { msg =>
       val product = msg.record.value().split(",")
       println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| receiptId: ${product(0)}")
-      if (product(4).trim.toInt % 10 == 0) {
-        println()
-      }
       ProducerMessage.single(
-        new ProducerRecord[String, String]("proxyToSink", msg.record.value),
+        new ProducerRecord[String, String]("noTransactionToSink", msg.record.value),
         msg.committableOffset
       )
     }

@@ -33,14 +33,12 @@ object TransactionZoombie extends App {
         }
         ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value), msg.partitionOffset)
       }
-      // side effect out the `Control` materialized value because it can't be propagated through the `RestartSource`
       .mapMaterializedValue(c => innerControl.set(c))
-      .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
+      .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "transaction"))
   }
 
   stream.runWith(Sink.ignore)
 
-  // Add shutdown hook to respond to SIGTERM and gracefully shutdown stream
   sys.ShutdownHookThread {
     Await.result(innerControl.get.shutdown(), 10.seconds)
   }
