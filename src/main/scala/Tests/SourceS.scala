@@ -2,11 +2,10 @@ package Tests
 
 import Model.Product
 import Properties.ProjectProperties
-import Transaction.SourceProducerTransaction.{randomAmount, randomPrice, takeProductName, uniqueId}
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage
 import akka.kafka.scaladsl.Producer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.duration._
@@ -55,20 +54,14 @@ object SourceS extends App {
     .map { _ =>
       ProducerMessage.single(
         new ProducerRecord[String, String]("sourceToTransaction",
-          new Product(uniqueId.updateAndGetId, takeProductName(), randomAmount(), randomPrice()).toString)
+          listOfProduct(i).toString)
       )
     }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
       case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) => {
-        println("hej")
         i = i + 1
-        val product = record.value().split(",")
-        println(f"Send -> productId: ${product(0)}3s| ${product(1)}%-9s| amount: ${product(2)}%-3s | price: ${product(3)}%-6s")
-        if (i == 30) {
-          println("\n Everything has been sent. Finish.")
-          System.exit(0)
-        }
+        println(f"Send -> productId: ${listOfProduct(i).id}%-3s| name: ${listOfProduct(i).name}%-6s| amount: ${listOfProduct(i).amount}%-3s| price: ${listOfProduct(i).price}%-6s")
       }
     }
 
@@ -80,14 +73,12 @@ object SourceS extends App {
     ))
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
-      case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) => {
+      case ProducerMessage.Result(_, ProducerMessage.Message(_, _)) => {
         j = j + 1
-        val product = record.value().split(",")
-        println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| productId: ${product(0)}")
-        if (i == 30) {
-          println("\n Everything has been sent. Finish.")
-          System.exit(0)
-        }
+        println(f"Send -> productId: ${listOfProduct(j).id}%-3s| name: ${listOfProduct(j).name}%-6s| amount: ${listOfProduct(j).amount}%-3s| price: ${listOfProduct(j).price}%-6s")
       }
     }
+
+    zoombie.runWith(Sink.foreach(println(_)))
+    noZoombie.runWith(Sink.foreach(println(_)))
 }
