@@ -2,6 +2,7 @@ package Tests
 
 import Model.Product
 import Properties.ProjectProperties
+import Transaction.SourceProducerTransaction.{randomAmount, randomPrice, takeProductName, uniqueId}
 import akka.actor.ActorSystem
 import akka.kafka.ProducerMessage
 import akka.kafka.scaladsl.Producer
@@ -15,8 +16,8 @@ object SourceS extends App {
   implicit val system: ActorSystem = akka.actor.ActorSystem("system")
 
   var listOfProduct = List[Product](
+    new Product(0, "banan", 2, 3),
     new Product(1, "łosos", 5, 10),
-    new Product(2, "banan", 2, 3),
     new Product(2, "banan", 2, 3),
     new Product(3, "woda", 3, 2),
     new Product(4, "chleb", 1, 4.60),
@@ -44,19 +45,23 @@ object SourceS extends App {
     new Product(26, "ryz", 3, 15),
     new Product(27, "baton", 1, 15),
     new Product(28, "cukier", 1, 2.5),
-    new Product(29, "makaron", 4, 1.3),
-    new Product(30, "ser", 3, 25)
+    new Product(29, "makaron", 4, 1.3)
   )
 
   /** Produce messages to topic which subscribe class "Transaction" */
   var i = 0
   val zoombie = Source
-    .tick(1.second, 1.second, ProducerMessage.single(
-      new ProducerRecord[String, String]("sourceToNoTransaction", listOfProduct(i).toString)
-    ))
+    .tick(1.second, 1.second, "")
+    .map { _ =>
+      ProducerMessage.single(
+        new ProducerRecord[String, String]("sourceToTransaction",
+          new Product(uniqueId.updateAndGetId, takeProductName(), randomAmount(), randomPrice()).toString)
+      )
+    }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
       case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) => {
+        println("hej")
         i = i + 1
         val product = record.value().split(",")
         println(f"Send -> productId: ${product(0)}3s| ${product(1)}%-9s| amount: ${product(2)}%-3s | price: ${product(3)}%-6s")
@@ -71,11 +76,11 @@ object SourceS extends App {
   var j = 0
   val noZoombie = Source
     .tick(1.second, 1.second, ProducerMessage.single(
-      new ProducerRecord[String, String]("sourceToNoTransactionZoombie", listOfProduct(j).toString)
+      new ProducerRecord[String, String]("sourceToTransactionZoombie", listOfProduct(j).toString)
     ))
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
-      case ProducerMessage.Result(metadata, ProducerMessage.Message(record, passThrough)) => {
+      case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) => {
         j = j + 1
         val product = record.value().split(",")
         println(f"Send:${product(1)}%-9s| price: ${product(3)}%-6s| amount: ${product(2)}%-3s| productId: ${product(0)}")

@@ -24,8 +24,8 @@ object SinkS extends App {
       y(0) * y(1)
     })
     .runWith(Sink.foreach((x) => {
-      finalPrice = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
-      println(f"Receive -> productId: ${idRecord}3s| ${productName}%-9s| amount: ${amount}%-3s | price: ${price}%-6s")
+      finalPrice += BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+      println(f"Receive <- productId: ${idRecord}3s| ${productName}%-9s| amount: ${amount}%-3s | price: ${price}%-6s")
       if(idRecord == 30){
         println(s"\n FINAL PRICE: $finalPrice")
       }
