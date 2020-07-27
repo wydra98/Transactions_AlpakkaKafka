@@ -43,7 +43,6 @@ object ProjectProperties {
       .withBootstrapServers("localhost:9092")
       .withGroupId("group12")
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
       .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
       .withProperty(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed")
       .withProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
