@@ -8,6 +8,7 @@ import akka.kafka.scaladsl.Producer
 import akka.stream.scaladsl.{Sink, Source}
 import org.apache.kafka.clients.producer.ProducerRecord
 
+import scala.collection.immutable
 import scala.concurrent.duration._
 
 object SourceS extends App {
@@ -15,7 +16,6 @@ object SourceS extends App {
   implicit val system: ActorSystem = akka.actor.ActorSystem("system")
 
   var listOfProduct = List[Product](
-    new Product(0, "banan", 2, 3),
     new Product(1, "łosos", 5, 10),
     new Product(2, "banan", 2, 3),
     new Product(3, "woda", 3, 2),
@@ -44,41 +44,47 @@ object SourceS extends App {
     new Product(26, "ryz", 3, 15),
     new Product(27, "baton", 1, 15),
     new Product(28, "cukier", 1, 2.5),
-    new Product(29, "makaron", 4, 1.3)
+    new Product(29, "makaron", 4, 1.3),
+    new Product(30, "banan", 2, 3)
   )
 
   /** Produce messages to topic which subscribe class "Transaction" */
   var i = 0
-  val zoombie = Source
+  val sourceProducer = Source
     .tick(1.second, 1.second, "")
     .map { _ =>
-      ProducerMessage.single(
-        new ProducerRecord[String, String]("sourceToTransaction",
-          listOfProduct(i).toString)
+      i = i + 1
+      println(f"Send -> productId: ${listOfProduct(i - 1).id}%-3s| name: ${listOfProduct(i - 1).name}%-8s|" +
+        f" amount: ${listOfProduct(i - 1).amount}%-2s| price: ${listOfProduct(i - 1).price}%-6s")
+      ProducerMessage.multi(
+        immutable.Seq(
+
+          /** Produce messages to topic which subscribe class "Transaction" */
+          new ProducerRecord[String, String]("sourceToTransaction", listOfProduct(i - 1).toString),
+
+          /** Produce messages to topic which subscribe class "TransactionZoombie" */
+          new ProducerRecord[String, String]("sourceToTransactionZoombie", listOfProduct(i - 1).toString)
+        )
       )
     }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
-    .map {
-      case ProducerMessage.Result(_, ProducerMessage.Message(_, _)) => {
-        i = i + 1
-        f"Send -> productId: ${listOfProduct(i).id}%-3s| name: ${listOfProduct(i).name}%-6s| amount: ${listOfProduct(i).amount}%-3s| price: ${listOfProduct(i).price}%-6s"
-      }
-    }
+    .runWith(Sink.ignore)
 
-  /** Produce messages to topic which subscribe class "TransactionZoombie" */
-  var j = 0
-  val noZoombie = Source
-    .tick(1.second, 1.second, ProducerMessage.single(
-      new ProducerRecord[String, String]("sourceToTransactionZoombie", listOfProduct(j).toString)
-    ))
-    .via(Producer.flexiFlow(ProjectProperties.producerSettings))
-    .map {
-      case ProducerMessage.Result(_, ProducerMessage.Message(_, _)) => {
-        j = j + 1
-        f"Send -> productId: ${listOfProduct(j).id}%-3s| name: ${listOfProduct(j).name}%-6s| amount: ${listOfProduct(j).amount}%-3s| price: ${listOfProduct(j).price}%-6s"
-      }
-    }
 
-    zoombie.runWith(Sink.foreach(println(_)))
-    noZoombie.runWith(Sink.foreach(println(_)))
+  //  /** Produce messages to topic which subscribe class "TransactionZoombie" */
+  //  var j = 0
+  //  val noZoombie = Source
+  //    .tick(1.second, 1.second, ProducerMessage.single(
+  //      new ProducerRecord[String, String]("sourceToTransactionZoombie", listOfProduct(j).toString)
+  //    ))
+  //    .via(Producer.flexiFlow(ProjectProperties.producerSettings))
+  //    .map {
+  //      case ProducerMessage.Result(_, ProducerMessage.Message(_, _)) => {
+  //        j = j + 1
+  //        f"Send -> productId: ${listOfProduct(j).id}%-3s| name: ${listOfProduct(j).name}%-6s| amount: ${listOfProduct(j).amount}%-3s| price: ${listOfProduct(j).price}%-6s"
+  //      }
+  //    }
+  //
+  //    sourceProducer.runWith(Sink.foreach(println(_)))
+  //    noZoombie.runWith(Sink.foreach(println(_)))
 }

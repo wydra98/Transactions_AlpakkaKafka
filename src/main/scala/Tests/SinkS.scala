@@ -19,13 +19,14 @@ object SinkS extends App {
       val x = consumerRecord.value().split(",")
       idRecord = x(0).toInt
       productName = x(1).toString
-
+      amount = x(2).trim.toInt
+      price = x(3).trim.toDouble
       val y = x.drop(2).map((y) => y.toDouble)
       y(0) * y(1)
     })
     .runWith(Sink.foreach((x) => {
       finalPrice += BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
-      println(f"Receive <- productId: ${idRecord}3s| ${productName}%-9s| amount: ${amount}%-3s | price: ${price}%-6s")
+      println(f"Receive <- productId: ${idRecord}%-3s| ${productName}%-8s| amount: ${amount}%-2s| price: ${price}%-6s")
       if(idRecord == 30){
         println(s"\n FINAL PRICE: $finalPrice")
       }

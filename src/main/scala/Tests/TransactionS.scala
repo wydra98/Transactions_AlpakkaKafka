@@ -61,10 +61,6 @@ object TransactionS extends App {
   val threadProp = new Thread(thread1)
   threadProp.start()
 
-  //@TODO musi działać to tak że jeśli przerwiemy w przed zacomitowaniem to zmiany nie pokażą się w konsumencie,
-  //@TODO  pasuje obsłużyć tutaj błędy, jakos wyswietlic to wszystko, napisac ze offset był taki a taki,
-  //@TODO a potem był taki, a taki
-
   val stream = RestartSource.onFailuresWithBackoff(
     minBackoff = 1.seconds,
     maxBackoff = 10.seconds,
@@ -75,13 +71,14 @@ object TransactionS extends App {
       .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
       .map { msg =>
 
-        if (thread1.flag) {
-          println("Error was thrown. Every")
-          throw new Throwable()
-        }
+//        if (thread1.flag) {
+//          println("Error was thrown. Every change within from last commit will be aborted.")
+//          throw new Throwable()
+//        }
 
         val product = msg.record.value().split(",")
-        println(f"Send -> id: ${product(0)}3s| ${product(1)}%-9s| amount: ${product(2)}%-3s | price: ${product(3)}%-6s|")
+        println(f"Send -> productId: ${product(0)}%-3s| name: ${product(1)}%-8s|" +
+          f" amount: ${product(2)}%-2s| price: ${product(3)}%-6s")
 
 
         ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value),
@@ -91,8 +88,7 @@ object TransactionS extends App {
       .mapMaterializedValue(c => innerControl.set(c))
       .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
   }
-
-  stream.runWith(Sink.ignore)
+    .runWith(Sink.ignore)
 
 
   /** 1 - logging
