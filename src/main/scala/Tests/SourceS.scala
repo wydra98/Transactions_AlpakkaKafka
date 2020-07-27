@@ -59,9 +59,9 @@ object SourceS extends App {
     }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
     .map {
-      case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) => {
+      case ProducerMessage.Result(_, ProducerMessage.Message(_, _)) => {
         i = i + 1
-        println(f"Send -> productId: ${listOfProduct(i).id}%-3s| name: ${listOfProduct(i).name}%-6s| amount: ${listOfProduct(i).amount}%-3s| price: ${listOfProduct(i).price}%-6s")
+        f"Send -> productId: ${listOfProduct(i).id}%-3s| name: ${listOfProduct(i).name}%-6s| amount: ${listOfProduct(i).amount}%-3s| price: ${listOfProduct(i).price}%-6s"
       }
     }
 
@@ -75,7 +75,7 @@ object SourceS extends App {
     .map {
       case ProducerMessage.Result(_, ProducerMessage.Message(_, _)) => {
         j = j + 1
-        println(f"Send -> productId: ${listOfProduct(j).id}%-3s| name: ${listOfProduct(j).name}%-6s| amount: ${listOfProduct(j).amount}%-3s| price: ${listOfProduct(j).price}%-6s")
+        f"Send -> productId: ${listOfProduct(j).id}%-3s| name: ${listOfProduct(j).name}%-6s| amount: ${listOfProduct(j).amount}%-3s| price: ${listOfProduct(j).price}%-6s"
       }
     }
 
