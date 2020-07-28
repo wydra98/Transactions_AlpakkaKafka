@@ -1,16 +1,20 @@
 package Tests
 
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicReference
 
 import Model.Product
 import Properties.ProjectProperties
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Producer, Transactional}
-import akka.kafka.{ProducerMessage, Subscriptions}
-import akka.stream.scaladsl.{RestartSource, Sink, Source}
+import akka.kafka.{ConsumerMessage, ProducerMessage, Subscriptions}
+import akka.stream.{ClosedShape, SourceShape}
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Keep, RestartSource, RunnableGraph, Sink, Source}
 import org.apache.kafka.clients.producer.ProducerRecord
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 object One extends App {
@@ -48,16 +52,17 @@ object One extends App {
     new Product(29, "makaron", 4, 1.3),
     new Product(30, "banan", 2, 3))
 
+
   val thread1 = new ThreadInterrupt()
   val threadProp = new Thread(thread1)
   threadProp.start()
 
+  val firstSource = Source(1 to 1000)
 
-  /** PRODUCENT **/
-
+  /** PRODUCENT */
   var i = 0
   val sourceProducer = Source
-    .tick(1.second, 1.second, "")
+    .tick(1.second, 1.second, 1)
     .map { _ =>
       ProducerMessage.single(
         new ProducerRecord[String, String]("sourceToTransaction",
@@ -71,39 +76,25 @@ object One extends App {
         f"Send -> productId: ${listOfProduct(i).id}%-3s| name: ${listOfProduct(i).name}%-6s| amount: ${listOfProduct(i).amount}%-3s| price: ${listOfProduct(i).price}%-6s"
       }
     }
-    .runWith(Sink.ignore)
 
-
-  /** TRANSACTION **/
-
+  /** TRANSACTION */
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
+  val transaction: Source[ProducerMessage.Results[String, String, ConsumerMessage.PartitionOffset], Unit] = Transactional
+    .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
+    .map { msg =>
+      val product = msg.record.value().split(",")
+      println(f"Send -> productId: ${product(0)}%-3s| name: ${product(1)}%-8s|" +
+        f" amount: ${product(2)}%-2s| price: ${product(3)}%-6s| offest: ${msg.partitionOffset.offset}")
+      //        if (product(0).trim().toInt == 15) {
+      //          System.err.println("Bład został rzucony podczas wiadomości o id " + product(0).trim().toInt)
+      //          throw new Throwable
+      //        }
+      ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value),
+        msg.partitionOffset)
+    }
+    .mapMaterializedValue(c => innerControl.set(c))
+    .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
 
-  val stream = RestartSource.onFailuresWithBackoff(
-    minBackoff = 1.seconds,
-    maxBackoff = 10.seconds,
-    randomFactor = 0.2,
-    maxRestarts = 2
-  ) { () =>
-    Transactional
-      .source(ProjectProperties.consumerSettings, Subscriptions.topics("sourceToTransaction"))
-      .map { msg =>
-        if (thread1.flag) {
-          println("Error was thrown. Every change within from last commit will be aborted.")
-          throw new Throwable()
-        }
-
-        val product = msg.record.value().split(",")
-        println(f"Send -> productId: ${product(0)}%-3s| name: ${product(1)}%-8s|" +
-          f" amount: ${product(2)}%-2s| price: ${product(3)}%-6s")
-
-
-        ProducerMessage.single(new ProducerRecord("transactionToSink", msg.record.key, msg.record.value),
-          msg.partitionOffset)
-      }
-
-      .mapMaterializedValue(c => innerControl.set(c))
-      .via(Transactional.flow(ProjectProperties.producerTransactionSettings, "producer"))
-  }
     .runWith(Sink.ignore)
 
 
@@ -124,12 +115,81 @@ object One extends App {
       val y = x.drop(2).map((y) => y.toDouble)
       y(0) * y(1)
     })
-    .runWith(Sink.foreach((x) => {
+    .map((x) => {
       finalPrice += BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
       // println(f"    Receive <- productId: ${idRecord}%-3s| ${productName}%-8s| amount: ${amount}%-2s| price: ${price}%-6s")
       if (idRecord == 30) {
         println(s"\n FINAL PRICE: $finalPrice")
       }
-    }))
+    })
+
+  //      .runWith(Sink.foreach((x) => {
+  //        finalPrice += BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+  //        // println(f"    Receive <- productId: ${idRecord}%-3s| ${productName}%-8s| amount: ${amount}%-2s| price: ${price}%-6s")
+  //        if (idRecord == 30) {
+  //          println(s"\n FINAL PRICE: $finalPrice")
+  //        }
+  //      }))
+
+  val singleSource = Source.single(1)
+  val singleSink = Sink.ignore
+  // val exampleFlow = Flow[Int].filter(_>100)
+
+
+  val stream = RestartSource.onFailuresWithBackoff(
+    minBackoff = 1.seconds,
+    maxBackoff = 10.seconds,
+    randomFactor = 0.2,
+    maxRestarts = 2
+  ) {
+
+    /** GRAPH */
+    val graph = Source.fromGraph(GraphDSL.create() {
+      implicit builder =>
+        import GraphDSL.Implicits._
+
+        val broadcast = builder.add(Broadcast[Int](3))
+
+        //        broadcast.out(0) ~> sourceProducer ~> singleSink
+        //        broadcast.out(1) ~> transaction ~> singleSink
+        //        broadcast.out(2) ~> consumer ~> singleSink
+
+        ClosedShape
+    })
+      .run()
+
+  }
+
+
+  /** SinkFlow **/
+  val sinkFlow = Flow.fromGraph(GraphDSL.create() {implicit builder =>
+
+  val sourceShape = builder.add(source)
+  val sinkShape = builder.add(sink)
+
+  })
+
+  val source: Source[Int, NotUsed] =
+    Source.fromIterator(() => Iterator.continually(ThreadLocalRandom.current().nextInt(100))).take(100)
+
+  val countSink: Sink[Int, Future[Int]] = Flow[Int].toMat(Sink.fold(0)((acc, elem) => acc + 1))(Keep.right)
+  val minSink: Sink[Int, Future[Int]] = Flow[Int].toMat(Sink.fold(0)((acc, elem) => math.min(acc, elem)))(Keep.right)
+  val maxSink: Sink[Int, Future[Int]] = Flow[Int].toMat(Sink.fold(0)((acc, elem) => math.max(acc, elem)))(Keep.right)
+
+  val (count: Future[Int], min: Future[Int], max: Future[Int]) =
+    RunnableGraph
+      .fromGraph(GraphDSL.create(countSink, minSink, maxSink)(Tuple3.apply) {
+        implicit builder =>
+          (countS, minS, maxS) =>
+            import GraphDSL.Implicits._
+            val broadcast = builder.add(Broadcast[Int](3))
+            source ~> broadcast
+            broadcast.out(0) ~> countS
+            broadcast.out(0) ~> minS
+            broadcast.out(0) ~> maxS
+            ClosedShape
+      })
+      .run()
+
 
 }
