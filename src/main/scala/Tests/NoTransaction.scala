@@ -1,5 +1,0 @@
-package Tests
-
-object NoTransaction {
-
-}
