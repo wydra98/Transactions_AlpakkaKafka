@@ -14,7 +14,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.duration._
 
-object One extends App {
+object Transaction extends App {
 
   implicit val system: ActorSystem = akka.actor.ActorSystem("system")
 
