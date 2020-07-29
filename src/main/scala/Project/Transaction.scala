@@ -74,7 +74,7 @@ object Transaction extends App {
     }
 
 
-  /** TRANSAKCJA PRZESYŁAJĄCA DANE DO KONSUMENTA, COMMIT ZATWIERDZAMY CO 100 MILISEKUND (W TEJ CZĘSCI POKAŻEMY ZOOMBIE) */
+  /** TRANSAKCJA PRZESYŁAJĄCA DANE DO KONSUMENTA, COMMIT ZATWIERDZAMY CO 10 SEKUND*/
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
   val transaction = Transactional
     .source(ProjectProperties.consumerSettings_1, Subscriptions.topics("producentToTransaction"))
@@ -92,11 +92,11 @@ object Transaction extends App {
         msg.partitionOffset)
     }
     .mapMaterializedValue(c => innerControl.set(c))
-    .via(Transactional.flow(ProjectProperties.producerTransaction100MilisecondsSettings, "transaction1"))
+    .via(Transactional.flow(ProjectProperties.producerTransaction10SecondsSettings, "transaction1"))
 
 
-  /** TRANSAKCYJNY KONSUMENT WYSYŁAJĄCY KOŃCOWĄ CENĘ NA ZEWNĘTRZNY TOPIC, COMMIT ZATWIERDZANY CO 10 SEKUND
-   * (W TEJ CZĘSCI POKAŻEMY WSZYSTKO ALBO NIC, CZYLI RZUCANIE WĄTKU) */
+  /** TRANSAKCYJNY KONSUMENT WYSYŁAJĄCY
+   */
   var finalPrice = 0.0
   val consumer = {
     Consumer
@@ -108,8 +108,10 @@ object Transaction extends App {
 
         println(f"    Receive <- ID: ${valueArray(0)}%-3s| ${valueArray(1)}%-8s| amount: ${valueArray(2)}%-2s| price: ${valueArray(3)}%-6s")
 
+
         ProducerMessage.single(new ProducerRecord[String, String]("finalPriceTopicTransaction",
           s"Receive <- ID: ${valueArray(0)}%-3s| ${valueArray(1)}%-8s| amount: ${valueArray(2)}%-2s| price: ${valueArray(3)}%-6s"))
+
 
         finalPrice += price
         if (valueArray(0).trim.toInt == 30) {
