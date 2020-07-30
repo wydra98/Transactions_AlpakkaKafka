@@ -20,7 +20,6 @@ object NoTransaction extends App {
 
   implicit val system: ActorSystem = akka.actor.ActorSystem("system")
 
-
   /** LISTA PRODUKTÓW DO PRZESŁANIA */
   var listOfProduct = List[Model.Product](
     new Model.Product(1, "łosoś", 5, 10),
@@ -55,7 +54,7 @@ object NoTransaction extends App {
     new Model.Product(30, "banan", 2, 3))
 
 
-  /** WĄTEK ODPOWIADAJĄCY ZA RZUCANIE BŁĘDU PODCZAS TRANSAKCJI */
+  /** WĄTEK - RZUCANIE BŁĘDU PODCZAS TRANSAKCJI */
   val thread = new ThreadInterrupt()
   new Thread(thread).start()
 
@@ -63,29 +62,27 @@ object NoTransaction extends App {
   /** PRODUCENT WYSYŁAJĄCY PRODUKTY DO TRANSAKCJI */
   val producer = Source(listOfProduct)
     .throttle(1, 1.second)
-    .map { oneProduct =>
+    .map { product =>
+      println(f"${WHITE}Send -> ID: ${product.id}%-7s| name: ${product.name}%-9s| amount: ${product.amount}%-3s| price: ${product.price}%-6s${RESET}")
       ProducerMessage.single(
         new ProducerRecord[String, String]("producerToNoTransactionNoZoombie",
-          oneProduct.toString)
+          product.toString)
       )
     }
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
-    .map {
-      case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) => {
-        val product = record.value().split(",")
-        println(f"${WHITE}Send -> ID: ${product(0)}%-6s| name: ${product(1)}%-9s| amount: ${product(2)}%-3s| price: ${product(3)}%-6s${RESET}")
-      }
-    }
 
 
-  /** POŚREDNIK <<NIETRANSAKCYJNY>> PRZESYŁAJĄCY DANE DO KONSUMENTA, W TYM MIEJSCU POKAŻEMY ŻE ZOOMBIE BEZ TRANSAKCJI PSUJE PROGRAM */
+  /** POŚREDNIK NIETRANSAKCYJNY PRZESYŁAJĄCY DANE DO KONSUMENTA */
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
   val noTransaction = Consumer
     .committableSource(ProjectProperties.consumerSettings_1, Subscriptions.topics("producerToNoTransactionNoZoombie"))
     .map { msg =>
       val product = msg.record.value().split(",")
-      println(f"ReSend -> ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
-        f" amount: ${product(2)}%-3s| price: ${product(3)}%-6s")
+      val x = product(2).toDouble * product(3).toDouble
+      val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+
+      println(f"${YELLOW}ReSend <-> ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
+        f" total price: ${price}%-6s${RESET}")
 
       if (thread.flag) {
         println(s"${RED}Error was thrown. Every change within from last commit will be aborted.${RESET}")
@@ -94,7 +91,7 @@ object NoTransaction extends App {
 
       Source.single(msg)
         .map(x => new ProducerRecord[String, String]("noTransactionToConsumerNoZoombie",
-          msg.record.value))
+          s"${product(0)},${product(1)},$price"))
         .runWith(Producer.plainSink(ProjectProperties.producerSettings))
     }
 
@@ -105,16 +102,14 @@ object NoTransaction extends App {
     Consumer
       .plainSource(ProjectProperties.consumerSettings_2, Subscriptions.topics("noTransactionToConsumerNoZoombie"))
       .map((msg) => {
-        val valueArray = msg.value().split(",")
-        val x = valueArray(2).toDouble * valueArray(3).toDouble
-        val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+        val product = msg.value().split(",")
 
-        println(f"${CYAN}Receive <- ID: ${valueArray(0)}%-3s| name: ${valueArray(1)}%-9s|" +
-          f" amount: ${valueArray(2)}%-3s| price: ${valueArray(3)}%-6s${RESET}")
+        println(f"${CYAN}Receive <- ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
+          f" total price: ${product(2)}%-6s${RESET}")
 
-        finalPrice += price
-        if (valueArray(0).trim.toInt == 30) {
-          println(s"\n FINAL PRICE: $finalPrice")
+        finalPrice += product(2).trim.toDouble
+        if (product(0).trim.toInt == 30) {
+          println(s"\n${RED}FINAL PRICE: $finalPrice${RESET}")
         }
       })
   }

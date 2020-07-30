@@ -65,7 +65,7 @@ object NoTransactionZoombie extends App {
   val producer = Source(listOfProduct)
     .throttle(1, 1.second)
     .map { product =>{
-      println(f"${WHITE}Send -> ID: ${product.id}%-6s| name: ${product.name}%-9s| amount: ${product.amount}%-3s| price: ${product.price}%-6s${RESET}")
+      println(f"${WHITE}Send -> ID: ${product.id}%-7s| name: ${product.name}%-9s| amount: ${product.amount}%-3s| price: ${product.price}%-6s${RESET}")
       ProducerMessage.multi(
         immutable.Seq(
           new ProducerRecord[String, String]("producerToNoTransaction", product.toString),
@@ -77,17 +77,20 @@ object NoTransactionZoombie extends App {
     .via(Producer.flexiFlow(ProjectProperties.producerSettings))
 
 
-  /** POŚREDNIK <<NIETRANSAKCYJNY>> PRZESYŁAJĄCY DANE DO KONSUMENTA */
+  /** NIETRANSAKCYJNY POŚREDNIK PRZESYŁAJĄCY DANE DO KONSUMENTA */
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
   val noTransaction = Consumer
     .committableSource(ProjectProperties.consumerSettings_1, Subscriptions.topics("producerToNoTransaction"))
     .map { msg =>
       val product = msg.record.value().split(",")
-      println(f"${GREEN}ReSend -> ID: ${product(0)}%-3s| name: ${product(1)}%-8s|" +
-        f" amount: ${product(2)}%-2s| price: ${product(3)}%-6s| noZoombie${RESET}")
+      val x = product(2).toDouble * product(3).toDouble
+      val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+
+      println(f"${GREEN}ReSend <-> ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
+        f" total price: ${price}%-6s| noZoombie${RESET}")
 
       if (thread.flag) {
-        println("Error was thrown. Every change within from last commit will be aborted.")
+        println(s"${RED}Error was thrown. Every change within from last commit will be aborted.${RESET}")
         throw new Throwable()
       }
 
@@ -103,11 +106,14 @@ object NoTransactionZoombie extends App {
     .committableSource(ProjectProperties.consumerSettings_1, Subscriptions.topics("producerToNoTransactionZoombie"))
     .map { msg =>
       val product = msg.record.value().split(",")
-      println(f"${MAGENTA}ReSend -> ID: ${product(0)}%-3s| name: ${product(1)}%-8s|" +
-        f" amount: ${product(2)}%-2s| price: ${product(3)}%-6s| zoombie${RESET}")
+      val x = product(2).toDouble * product(3).toDouble
+      val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+
+      println(f"${MAGENTA}ReSend <-> ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
+        f" total price: ${price}%-6s| zoombie${RESET}")
 
       if (thread.flag) {
-        println("Error was thrown. Every change within from last commit will be aborted.")
+        println(s"${RED}Error was thrown. Every change within from last commit will be aborted.${RESET}")
         throw new Throwable()
       }
 
@@ -125,17 +131,15 @@ object NoTransactionZoombie extends App {
     Consumer
       .plainSource(ProjectProperties.consumerSettings_2, Subscriptions.topics("noTransactionToConsumerZoombie"))
       .map((msg) => {
-        val valueArray = msg.value().split(",")
-        val x = valueArray(2).toDouble * valueArray(3).toDouble
-        val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+        val product = msg.value().split(",")
 
-        println(f"${CYAN}Receive <- ID: ${valueArray(0)}%-3s| name: ${valueArray(1)}%-9s|" +
-          f" amount: ${valueArray(2)}%-3s| price: ${valueArray(3)}%-6s${RESET}")
+        println(f"${CYAN}Receive <- ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
+          f" total price: ${product(2)}%-6s${RESET}")
 
-        finalPrice += price
-        if (valueArray(0).trim.toInt == 30) {
+        finalPrice += product(2).trim.toDouble
+        if (product(0).trim.toInt == 30) {
           if(flag)
-          println(s"\n ${RED}FINAL PRICE: $finalPrice${RESET}")
+          println(s"\n${RED}FINAL PRICE: $finalPrice${RESET}")
           flag = true
         }
       })

@@ -3,11 +3,11 @@ package Project.NoZoombie
 import java.util.concurrent.atomic.AtomicReference
 
 import Project.Model
-import Project.Model.{Product, ThreadInterrupt}
+import Project.Model.ThreadInterrupt
 import Project.Properties.ProjectProperties
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.scaladsl.{Consumer, Transactional}
+import akka.kafka.scaladsl.{Consumer, Producer, Transactional}
 import akka.kafka.{ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.{Merge, RestartSource, Sink, Source}
 import akka.stream.{ActorAttributes, Supervision}
@@ -23,36 +23,36 @@ object Transaction extends App {
 
   /** LISTA PRODUKTÓW DO PRZESŁANIA */
   var listOfProduct = List[Model.Product](
-    new Model.Product(1, "łosoś", 5, 10,0),
-    new Model.Product(2, "banan", 2, 3,0),
-    new Model.Product(3, "woda", 3, 2,0),
-    new Model.Product(4, "chleb", 1, 4.60,0),
-    new Model.Product(5, "jogurt", 1, 3.20,0),
-    new Model.Product(6, "ryż", 3, 15,0),
-    new Model.Product(7, "baton", 1, 15,0),
-    new Model.Product(8, "cukier", 1, 2.5,0),
-    new Model.Product(9, "makaron", 4, 1.3,0),
-    new Model.Product(10, "ser", 3, 25,0),
-    new Model.Product(11, "łosoś", 5, 10,0),
-    new Model.Product(12, "banan", 2, 3,0),
-    new Model.Product(13, "woda", 3, 2,0),
-    new Model.Product(14, "chleb", 1, 4.60,0),
-    new Model.Product(15, "jogurt", 1, 3.20,0),
-    new Model.Product(16, "ryż", 3, 15,0),
-    new Model.Product(17, "baton", 1, 15,0),
-    new Model.Product(18, "cukier", 1, 2.5,0),
-    new Model.Product(19, "makaron", 4, 1.3,0),
-    new Model.Product(20, "ser", 3, 25,0),
-    new Model.Product(21, "łosoś", 5, 10,0),
-    new Model.Product(22, "banan", 2, 3,0),
-    new Model.Product(23, "woda", 3, 2,0),
-    new Model.Product(24, "chleb", 1, 4.60,0),
-    new Model.Product(25, "jogurt", 1, 3.20,0),
-    new Model.Product(26, "ryż", 3, 15,0),
-    new Model.Product(27, "baton", 1, 15,0),
-    new Model.Product(28, "cukier", 1, 2.5,0),
-    new Model.Product(29, "makaron", 4, 1.3,0),
-    new Model.Product(30, "banan", 2, 3,0))
+    new Model.Product(1, "łosoś", 5, 10),
+    new Model.Product(2, "banan", 2, 3),
+    new Model.Product(3, "woda", 3, 2),
+    new Model.Product(4, "chleb", 1, 4.60),
+    new Model.Product(5, "jogurt", 1, 3.20),
+    new Model.Product(6, "ryż", 3, 15),
+    new Model.Product(7, "baton", 1, 15),
+    new Model.Product(8, "cukier", 1, 2.5),
+    new Model.Product(9, "makaron", 4, 1.3),
+    new Model.Product(10, "ser", 3, 25),
+    new Model.Product(11, "łosoś", 5, 10),
+    new Model.Product(12, "banan", 2, 3),
+    new Model.Product(13, "woda", 3, 2),
+    new Model.Product(14, "chleb", 1, 4.60),
+    new Model.Product(15, "jogurt", 1, 3.20),
+    new Model.Product(16, "ryż", 3, 15),
+    new Model.Product(17, "baton", 1, 15),
+    new Model.Product(18, "cukier", 1, 2.5),
+    new Model.Product(19, "makaron", 4, 1.3),
+    new Model.Product(20, "ser", 3, 25),
+    new Model.Product(21, "łosoś", 5, 10),
+    new Model.Product(22, "banan", 2, 3),
+    new Model.Product(23, "woda", 3, 2),
+    new Model.Product(24, "chleb", 1, 4.60),
+    new Model.Product(25, "jogurt", 1, 3.20),
+    new Model.Product(26, "ryż", 3, 15),
+    new Model.Product(27, "baton", 1, 15),
+    new Model.Product(28, "cukier", 1, 2.5),
+    new Model.Product(29, "makaron", 4, 1.3),
+    new Model.Product(30, "banan", 2, 3))
 
 
   /** WĄTEK ODPOWIADAJĄCY ZA RZUCANIE BŁĘDU PODCZAS TRANSAKCJI */
@@ -64,32 +64,35 @@ object Transaction extends App {
   val producer = Source(listOfProduct)
     .throttle(1, 1.second)
     .map { product =>
-      println(f"${WHITE}Send -> ID: ${product.id}%-6s| name: ${product.name}%-9s| amount: ${product.amount}%-3s| price: ${product.price}%-6s${RESET}")
+      println(f"${WHITE}Send -> ID: ${product.id}%-7s| name: ${product.name}%-9s| amount: ${product.amount}%-3s| price: ${product.price}%-6s${RESET}")
       ProducerMessage.single(
         new ProducerRecord[String, String]("producerToTransactionNoZoombie",
           product.toString)
       )
     }
+    .via(Producer.flexiFlow(ProjectProperties.producerSettings))
 
 
   /** TRANSAKCJA PRZESYŁAJĄCA DANE DO KONSUMENTA */
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
   val transaction = Transactional
     .source(ProjectProperties.consumerSettings_1, Subscriptions.topics("producerToTransactionNoZoombie"))
-    .map { productInstance =>
-      val product = productInstance.record.value()
-      val totalPrice = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+    .map { msg =>
+      val product = msg.record.value().split(",")
+      val x = product(2).toDouble * product(3).toDouble
+      val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
 
-      println(f"ReSend -> ID: ${valueArray(0)}%-4s| name: ${valueArray(1)}%-9s|" +
-        f" total price: ${totalPrice}%-6s")
+      println(f"${YELLOW}ReSend <-> ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
+        f" total price: ${price}%-6s${RESET}")
 
       if (thread.flag) {
         println(s"${RED}Error was thrown. Every change within from last commit will be aborted.${RESET}")
         throw new Throwable()
       }
 
-      ProducerMessage.single(new ProducerRecord("transactionToConsumerNoZoombie", msg.record.key, msg.record.value),
-        msg.partitionOffset)
+      ProducerMessage.single(
+        new ProducerRecord[String, String]("transactionToConsumerNoZoombie", msg.record.key,
+         s"${product(0)},${product(1)},$price"),msg.partitionOffset)
     }
     .mapMaterializedValue(c => innerControl.set(c))
     .via(Transactional.flow(ProjectProperties.producerTransaction30SecondsSettings, "transaction1"))
@@ -101,15 +104,13 @@ object Transaction extends App {
     Consumer
       .plainSource(ProjectProperties.consumerSettings_2, Subscriptions.topics("transactionToConsumerNoZoombie"))
       .map((msg) => {
-        val valueArray = msg.value().split(",")
-        val x = valueArray(2).toDouble * valueArray(3).toDouble
-        val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+        val product = msg.value().split(",")
 
-        println(f"${CYAN}Receive <- ID: ${valueArray(0)}%-3s| name: ${valueArray(1)}%-9s|" +
-          f" amount: ${valueArray(2)}%-3s| totalPrice: ${valueArray(3)}%-6s${RESET}")
+        println(f"${CYAN}Receive <- ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
+          f" total price: ${product(2)}%-6s${RESET}")
 
-        finalPrice += price
-        if (valueArray(0).trim.toInt == 30) {
+        finalPrice += product(2).trim.toDouble
+        if (product(0).trim.toInt == 30) {
           println(s"\n${RED}FINAL PRICE: $finalPrice${RESET}")
         }
       })
