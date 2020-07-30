@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer.Control
-import akka.kafka.scaladsl.{Consumer, Producer, Transactional}
+import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.kafka.{ProducerMessage, Subscriptions}
 import akka.stream.scaladsl.{Merge, RestartSource, Sink, Source}
 import akka.stream.{ActorAttributes, Supervision}
@@ -61,7 +61,7 @@ object NoTransaction extends App {
     .throttle(1, 1.second)
     .map { oneProduct =>
       ProducerMessage.single(
-        new ProducerRecord[String, String]("producentToProxy",
+        new ProducerRecord[String, String]("producerToNoTransaction",
           oneProduct.toString)
       )
     }
@@ -74,50 +74,47 @@ object NoTransaction extends App {
     }
 
 
-  /** POŚREDNIK NIETRANSAKCYJNY PRZESYŁAJĄCY DANE DO KONSUMENTA, W TYM MIEJSCU POKAŻEMY ŻE ZOOMBIE BEZ TRANSAKCJI PSUJE PROGRAM */
+  /** POŚREDNIK <<NIETRANSAKCYJNY>> PRZESYŁAJĄCY DANE DO KONSUMENTA, W TYM MIEJSCU POKAŻEMY ŻE ZOOMBIE BEZ TRANSAKCJI PSUJE PROGRAM */
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
-  val proxy = Consumer
-    .committableSource(ProjectProperties.consumerSettings_1, Subscriptions.topics("producentToProxy"))
+  val noTransaction = Consumer
+    .committableSource(ProjectProperties.consumerSettings_1, Subscriptions.topics("producerToNoTransaction"))
     .map { msg =>
       val product = msg.record.value().split(",")
       println(f" ReSend -> ID: ${product(0)}%-3s| name: ${product(1)}%-8s|" +
         f" amount: ${product(2)}%-2s| price: ${product(3)}%-6s| offest: ${msg.record.offset}")
 
+      if (thread.flag) {
+        println("Error was thrown. Every change within from last commit will be aborted.")
+        throw new Throwable()
+      }
+
       Source.single(msg)
-        .map(x => new ProducerRecord[String, String]("proxyToConsumer",
+        .map(x => new ProducerRecord[String, String]("noTransactionToConsumer",
           msg.record.value))
         .runWith(Producer.plainSink(ProjectProperties.producerSettings))
     }
 
 
-  /** NIE TRANSAKCYJNY KONSUMENT WYSYŁAJĄCY KOŃCOWĄ CENĘ NA ZEWNĘTRZNY TOPIC
-   * (W TEJ CZĘSCI POKAŻEMY WSZYSTKO ALBO NIC NIE DZIAŁA, CZYLI RZUCANIE WĄTKU) */
+  /** KONSUMENT */
   var finalPrice = 0.0
   val consumer = {
-    Transactional
-      .source(ProjectProperties.consumerSettings_2, Subscriptions.topics("proxyToConsumer"))
+    Consumer
+      .plainSource(ProjectProperties.consumerSettings_2, Subscriptions.topics("noTransactionToConsumer"))
       .map((msg) => {
-        val valueArray = msg.record.value().split(",")
+        val valueArray = msg.value().split(",")
         val x = valueArray(2).toDouble * valueArray(3).toDouble
         val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
 
         println(f"    Receive <- ID: ${valueArray(0)}%-3s| ${valueArray(1)}%-8s| amount: ${valueArray(2)}%-2s| price: ${valueArray(3)}%-6s")
-        if (thread.flag) {
-          println("Error was thrown. Every change within from last commit will be aborted.")
-          throw new Throwable()
-        }
+
+        ProducerMessage.single(new ProducerRecord[String, String]("finalPriceTopicTransaction",
+          s"Receive <- ID: ${valueArray(0)}%-3s| ${valueArray(1)}%-8s| amount: ${valueArray(2)}%-2s| price: ${valueArray(3)}%-6s"))
 
         finalPrice += price
         if (valueArray(0).trim.toInt == 30) {
           println(s"\n FINAL PRICE: $finalPrice")
         }
-
-        ProducerMessage.single(new ProducerRecord[String, String]("finalPriceTopicNoTransaction",
-          f"Final price -> ID: ${valueArray(0)}%-3s| price: ${price}%-6s"),
-          msg.partitionOffset)
       })
-      .mapMaterializedValue(c => innerControl.set(c))
-      .via(Transactional.flow(ProjectProperties.producerTransaction10SecondsSettings, "transaction2"))
   }
 
   /** WYWOŁANIE SOURC-ÓW JEDNOCZEŚNIE WRAZ Z ICH RESTARTEM W RAZIE BŁĘDU */
@@ -129,7 +126,7 @@ object NoTransaction extends App {
     case _ => Supervision.Stop
   }
 
-  val totalSource = Source.combine(producer, proxy, consumer)(Merge(_))
+  val totalSource = Source.combine(producer, noTransaction, consumer)(Merge(_))
 
   RestartSource.onFailuresWithBackoff(
     minBackoff = 1.seconds,
