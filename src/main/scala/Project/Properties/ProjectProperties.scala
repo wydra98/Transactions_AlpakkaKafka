@@ -1,4 +1,4 @@
-package Project
+package Project.Properties
 
 import akka.actor.ActorSystem
 import akka.kafka.{ConsumerSettings, ProducerSettings}
@@ -21,7 +21,7 @@ object ProjectProperties {
       .withProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
       .withProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
 
-  val producerTransaction10SecondsSettings: ProducerSettings[String, String] =
+  val producerTransaction30SecondsSettings: ProducerSettings[String, String] =
     ProducerSettings(configProducer, new StringSerializer, new StringSerializer)
       .withBootstrapServers("localhost:9092")
       .withEosCommitInterval(31.seconds)
@@ -47,4 +47,3 @@ object ProjectProperties {
       .withProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
       .withProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
 }
-

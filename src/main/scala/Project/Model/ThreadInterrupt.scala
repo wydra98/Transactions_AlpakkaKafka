@@ -1,4 +1,4 @@
-package Project
+package Project.Model
 
 class ThreadInterrupt extends Runnable {
 

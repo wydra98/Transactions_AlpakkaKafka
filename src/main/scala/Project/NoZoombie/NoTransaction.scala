@@ -1,7 +1,10 @@
-package Project
+package Project.NoZoombie
 
 import java.util.concurrent.atomic.AtomicReference
 
+import Project.Properties.ProjectProperties
+import Project.Model
+import Project.Model.ThreadInterrupt
 import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer.Control
 import akka.kafka.scaladsl.{Consumer, Producer}
@@ -11,6 +14,7 @@ import akka.stream.{ActorAttributes, Supervision}
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.duration._
+import scala.io.AnsiColor._
 
 object NoTransaction extends App {
 
@@ -18,37 +22,37 @@ object NoTransaction extends App {
 
 
   /** LISTA PRODUKTÓW DO PRZESŁANIA */
-  var listOfProduct = List[Product](
-    new Product(1, "łosoś", 5, 10),
-    new Product(2, "banan", 2, 3),
-    new Product(3, "woda", 3, 2),
-    new Product(4, "chleb", 1, 4.60),
-    new Product(5, "jogurt", 1, 3.20),
-    new Product(6, "ryż", 3, 15),
-    new Product(7, "baton", 1, 15),
-    new Product(8, "cukier", 1, 2.5),
-    new Product(9, "makaron", 4, 1.3),
-    new Product(10, "ser", 3, 25),
-    new Product(11, "łosoś", 5, 10),
-    new Product(12, "banan", 2, 3),
-    new Product(13, "woda", 3, 2),
-    new Product(14, "chleb", 1, 4.60),
-    new Product(15, "jogurt", 1, 3.20),
-    new Product(16, "ryż", 3, 15),
-    new Product(17, "baton", 1, 15),
-    new Product(18, "cukier", 1, 2.5),
-    new Product(19, "makaron", 4, 1.3),
-    new Product(20, "ser", 3, 25),
-    new Product(21, "łosoś", 5, 10),
-    new Product(22, "banan", 2, 3),
-    new Product(23, "woda", 3, 2),
-    new Product(24, "chleb", 1, 4.60),
-    new Product(25, "jogurt", 1, 3.20),
-    new Product(26, "ryż", 3, 15),
-    new Product(27, "baton", 1, 15),
-    new Product(28, "cukier", 1, 2.5),
-    new Product(29, "makaron", 4, 1.3),
-    new Product(30, "banan", 2, 3))
+  var listOfProduct = List[Model.Product](
+    new Model.Product(1, "łosoś", 5, 10),
+    new Model.Product(2, "banan", 2, 3),
+    new Model.Product(3, "woda", 3, 2),
+    new Model.Product(4, "chleb", 1, 4.60),
+    new Model.Product(5, "jogurt", 1, 3.20),
+    new Model.Product(6, "ryż", 3, 15),
+    new Model.Product(7, "baton", 1, 15),
+    new Model.Product(8, "cukier", 1, 2.5),
+    new Model.Product(9, "makaron", 4, 1.3),
+    new Model.Product(10, "ser", 3, 25),
+    new Model.Product(11, "łosoś", 5, 10),
+    new Model.Product(12, "banan", 2, 3),
+    new Model.Product(13, "woda", 3, 2),
+    new Model.Product(14, "chleb", 1, 4.60),
+    new Model.Product(15, "jogurt", 1, 3.20),
+    new Model.Product(16, "ryż", 3, 15),
+    new Model.Product(17, "baton", 1, 15),
+    new Model.Product(18, "cukier", 1, 2.5),
+    new Model.Product(19, "makaron", 4, 1.3),
+    new Model.Product(20, "ser", 3, 25),
+    new Model.Product(21, "łosoś", 5, 10),
+    new Model.Product(22, "banan", 2, 3),
+    new Model.Product(23, "woda", 3, 2),
+    new Model.Product(24, "chleb", 1, 4.60),
+    new Model.Product(25, "jogurt", 1, 3.20),
+    new Model.Product(26, "ryż", 3, 15),
+    new Model.Product(27, "baton", 1, 15),
+    new Model.Product(28, "cukier", 1, 2.5),
+    new Model.Product(29, "makaron", 4, 1.3),
+    new Model.Product(30, "banan", 2, 3))
 
 
   /** WĄTEK ODPOWIADAJĄCY ZA RZUCANIE BŁĘDU PODCZAS TRANSAKCJI */
@@ -61,7 +65,7 @@ object NoTransaction extends App {
     .throttle(1, 1.second)
     .map { oneProduct =>
       ProducerMessage.single(
-        new ProducerRecord[String, String]("producerToNoTransaction",
+        new ProducerRecord[String, String]("producerToNoTransactionNoZoombie",
           oneProduct.toString)
       )
     }
@@ -69,7 +73,7 @@ object NoTransaction extends App {
     .map {
       case ProducerMessage.Result(_, ProducerMessage.Message(record, _)) => {
         val product = record.value().split(",")
-        println(f"Send -> ID: ${product(0)}%-3s| name: ${product(1)}%-6s| amount: ${product(2)}%-3s| price: ${product(3)}%-6s")
+        println(f"${WHITE}Send -> ID: ${product(0)}%-6s| name: ${product(1)}%-9s| amount: ${product(2)}%-3s| price: ${product(3)}%-6s${RESET}")
       }
     }
 
@@ -77,19 +81,19 @@ object NoTransaction extends App {
   /** POŚREDNIK <<NIETRANSAKCYJNY>> PRZESYŁAJĄCY DANE DO KONSUMENTA, W TYM MIEJSCU POKAŻEMY ŻE ZOOMBIE BEZ TRANSAKCJI PSUJE PROGRAM */
   val innerControl = new AtomicReference[Control](Consumer.NoopControl)
   val noTransaction = Consumer
-    .committableSource(ProjectProperties.consumerSettings_1, Subscriptions.topics("producerToNoTransaction"))
+    .committableSource(ProjectProperties.consumerSettings_1, Subscriptions.topics("producerToNoTransactionNoZoombie"))
     .map { msg =>
       val product = msg.record.value().split(",")
-      println(f" ReSend -> ID: ${product(0)}%-3s| name: ${product(1)}%-8s|" +
-        f" amount: ${product(2)}%-2s| price: ${product(3)}%-6s| offest: ${msg.record.offset}")
+      println(f"ReSend -> ID: ${product(0)}%-4s| name: ${product(1)}%-9s|" +
+        f" amount: ${product(2)}%-3s| price: ${product(3)}%-6s")
 
       if (thread.flag) {
-        println("Error was thrown. Every change within from last commit will be aborted.")
+        println(s"${RED}Error was thrown. Every change within from last commit will be aborted.${RESET}")
         throw new Throwable()
       }
 
       Source.single(msg)
-        .map(x => new ProducerRecord[String, String]("noTransactionToConsumer",
+        .map(x => new ProducerRecord[String, String]("noTransactionToConsumerNoZoombie",
           msg.record.value))
         .runWith(Producer.plainSink(ProjectProperties.producerSettings))
     }
@@ -99,16 +103,14 @@ object NoTransaction extends App {
   var finalPrice = 0.0
   val consumer = {
     Consumer
-      .plainSource(ProjectProperties.consumerSettings_2, Subscriptions.topics("noTransactionToConsumer"))
+      .plainSource(ProjectProperties.consumerSettings_2, Subscriptions.topics("noTransactionToConsumerNoZoombie"))
       .map((msg) => {
         val valueArray = msg.value().split(",")
         val x = valueArray(2).toDouble * valueArray(3).toDouble
         val price = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
 
-        println(f"    Receive <- ID: ${valueArray(0)}%-3s| ${valueArray(1)}%-8s| amount: ${valueArray(2)}%-2s| price: ${valueArray(3)}%-6s")
-
-        ProducerMessage.single(new ProducerRecord[String, String]("finalPriceTopicTransaction",
-          s"Receive <- ID: ${valueArray(0)}%-3s| ${valueArray(1)}%-8s| amount: ${valueArray(2)}%-2s| price: ${valueArray(3)}%-6s"))
+        println(f"${CYAN}Receive <- ID: ${valueArray(0)}%-3s| name: ${valueArray(1)}%-9s|" +
+          f" amount: ${valueArray(2)}%-3s| price: ${valueArray(3)}%-6s${RESET}")
 
         finalPrice += price
         if (valueArray(0).trim.toInt == 30) {
@@ -120,7 +122,7 @@ object NoTransaction extends App {
   /** WYWOŁANIE SOURC-ÓW JEDNOCZEŚNIE WRAZ Z ICH RESTARTEM W RAZIE BŁĘDU */
   val decider: Supervision.Decider = {
     case e: Exception => {
-      println("Exception handled, recovering stream: " + e.getMessage)
+      println(s"${RED}Exception handled, recovering stream: ${e.getMessage}${RESET}")
       Supervision.Stop
     }
     case _ => Supervision.Stop
