@@ -18,6 +18,7 @@ import scala.io.AnsiColor._
 
 object Transaction extends App {
 
+
   implicit val system: ActorSystem = akka.actor.ActorSystem("system")
 
 
@@ -52,7 +53,97 @@ object Transaction extends App {
     new Model.Product(27, "baton", 1, 15),
     new Model.Product(28, "cukier", 1, 2.5),
     new Model.Product(29, "makaron", 4, 1.3),
-    new Model.Product(30, "banan", 2, 3))
+    new Model.Product(30, "banan", 2, 3),
+    new Model.Product(31, "łosoś", 5, 10),
+    new Model.Product(32, "banan", 2, 3),
+    new Model.Product(33, "woda", 3, 2),
+    new Model.Product(34, "chleb", 1, 4.60),
+    new Model.Product(35, "jogurt", 1, 3.20),
+    new Model.Product(36, "ryż", 3, 15),
+    new Model.Product(37, "baton", 1, 15),
+    new Model.Product(38, "cukier", 1, 2.5),
+    new Model.Product(39, "makaron", 4, 1.3),
+    new Model.Product(40, "ser", 3, 25),
+    new Model.Product(41, "łosoś", 5, 10),
+    new Model.Product(42, "banan", 2, 3),
+    new Model.Product(43, "woda", 3, 2),
+    new Model.Product(44, "chleb", 1, 4.60),
+    new Model.Product(45, "jogurt", 1, 3.20),
+    new Model.Product(46, "ryż", 3, 15),
+    new Model.Product(47, "baton", 1, 15),
+    new Model.Product(48, "cukier", 1, 2.5),
+    new Model.Product(49, "makaron", 4, 1.3),
+    new Model.Product(50, "ser", 3, 25),
+    new Model.Product(51, "łosoś", 5, 10),
+    new Model.Product(52, "banan", 2, 3),
+    new Model.Product(53, "woda", 3, 2),
+    new Model.Product(54, "chleb", 1, 4.60),
+    new Model.Product(55, "jogurt", 1, 3.20),
+    new Model.Product(56, "ryż", 3, 15),
+    new Model.Product(57, "baton", 1, 15),
+    new Model.Product(58, "cukier", 1, 2.5),
+    new Model.Product(59, "makaron", 4, 1.3),
+    new Model.Product(60, "banan", 2, 3),
+    new Model.Product(61, "łosoś", 5, 10),
+    new Model.Product(62, "banan", 2, 3),
+    new Model.Product(63, "woda", 3, 2),
+    new Model.Product(64, "chleb", 1, 4.60),
+    new Model.Product(65, "jogurt", 1, 3.20),
+    new Model.Product(66, "ryż", 3, 15),
+    new Model.Product(67, "baton", 1, 15),
+    new Model.Product(68, "cukier", 1, 2.5),
+    new Model.Product(69, "makaron", 4, 1.3),
+    new Model.Product(70, "ser", 3, 25),
+    new Model.Product(71, "łosoś", 5, 10),
+    new Model.Product(72, "banan", 2, 3),
+    new Model.Product(73, "woda", 3, 2),
+    new Model.Product(74, "chleb", 1, 4.60),
+    new Model.Product(75, "jogurt", 1, 3.20),
+    new Model.Product(76, "ryż", 3, 15),
+    new Model.Product(77, "baton", 1, 15),
+    new Model.Product(78, "cukier", 1, 2.5),
+    new Model.Product(79, "makaron", 4, 1.3),
+    new Model.Product(80, "ser", 3, 25),
+    new Model.Product(81, "łosoś", 5, 10),
+    new Model.Product(82, "banan", 2, 3),
+    new Model.Product(83, "woda", 3, 2),
+    new Model.Product(84, "chleb", 1, 4.60),
+    new Model.Product(85, "jogurt", 1, 3.20),
+    new Model.Product(86, "ryż", 3, 15),
+    new Model.Product(87, "baton", 1, 15),
+    new Model.Product(88, "cukier", 1, 2.5),
+    new Model.Product(89, "makaron", 4, 1.3),
+    new Model.Product(90, "banan", 2, 3),
+    new Model.Product(91, "łosoś", 5, 10),
+    new Model.Product(92, "banan", 2, 3),
+    new Model.Product(93, "woda", 3, 2),
+    new Model.Product(94, "chleb", 1, 4.60),
+    new Model.Product(95, "jogurt", 1, 3.20),
+    new Model.Product(96, "ryż", 3, 15),
+    new Model.Product(97, "baton", 1, 15),
+    new Model.Product(98, "cukier", 1, 2.5),
+    new Model.Product(99, "makaron", 4, 1.3),
+    new Model.Product(100, "ser", 3, 25),
+    new Model.Product(101, "łosoś", 5, 10),
+    new Model.Product(102, "banan", 2, 3),
+    new Model.Product(103, "woda", 3, 2),
+    new Model.Product(104, "chleb", 1, 4.60),
+    new Model.Product(105, "jogurt", 1, 3.20),
+    new Model.Product(106, "ryż", 3, 15),
+    new Model.Product(107, "baton", 1, 15),
+    new Model.Product(108, "cukier", 1, 2.5),
+    new Model.Product(109, "makaron", 4, 1.3),
+    new Model.Product(110, "ser", 3, 25),
+    new Model.Product(111, "łosoś", 5, 10),
+    new Model.Product(112, "banan", 2, 3),
+    new Model.Product(113, "woda", 3, 2),
+    new Model.Product(114, "chleb", 1, 4.60),
+    new Model.Product(115, "jogurt", 1, 3.20),
+    new Model.Product(116, "ryż", 3, 15),
+    new Model.Product(117, "baton", 1, 15),
+    new Model.Product(118, "cukier", 1, 2.5),
+    new Model.Product(119, "makaron", 4, 1.3),
+    new Model.Product(120, "banan", 2, 3))
 
 
   /** WĄTEK ODPOWIADAJĄCY ZA RZUCANIE BŁĘDU PODCZAS TRANSAKCJI */
@@ -62,9 +153,15 @@ object Transaction extends App {
 
   /** PRODUCENT WYSYŁAJĄCY PRODUKTY DO TRANSAKCJI */
   val producer = Source(listOfProduct)
-    .throttle(1, 1.second)
+    .throttle(1, 0.2.second)
     .map { product =>
       println(f"${WHITE}Send -> ID: ${product.id}%-7s| name: ${product.name}%-9s| amount: ${product.amount}%-3s| price: ${product.price}%-6s${RESET}")
+
+      if (thread.flag) {
+        println(s"${RED}Error was thrown. Every change within from last commit will be aborted.${RESET}")
+        throw new Throwable()
+      }
+
       ProducerMessage.single(
         new ProducerRecord[String, String]("producerToTransactionNoZoombie",
           product.toString)
@@ -110,8 +207,8 @@ object Transaction extends App {
           f" total price: ${product(2)}%-6s${RESET}")
 
         finalPrice += product(2).trim.toDouble
-        if (product(0).trim.toInt == 30) {
-          println(s"\n${RED}FINAL PRICE: $finalPrice${RESET}")
+        if (product(0).trim.toInt == 120) {
+          println(s"\n${RED}FINAL PRICE: ${BigDecimal(finalPrice).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble}${RESET}")
         }
       })
   }

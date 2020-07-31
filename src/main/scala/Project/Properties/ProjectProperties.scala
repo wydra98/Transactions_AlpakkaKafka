@@ -24,7 +24,7 @@ object ProjectProperties {
   val producerTransaction30SecondsSettings: ProducerSettings[String, String] =
     ProducerSettings(configProducer, new StringSerializer, new StringSerializer)
       .withBootstrapServers("localhost:9092")
-      .withEosCommitInterval(31.seconds)
+      .withEosCommitInterval(30.seconds)
       .withProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
       .withProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer")
     .withProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true")
